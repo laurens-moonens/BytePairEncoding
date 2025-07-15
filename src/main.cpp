@@ -21,6 +21,7 @@ struct pairHash
 std::string input = "In the above example, the output of the BPE is a vocabulary, which can be used to encode any text that is written with the letters abcd. It will not be able to encode text containing other symbols, such as no. Even giving each of the 26 letters an entry in the vocabulary, since there are many languages in the world using many different scripts, inevitably some symbols would be unencodable by such a vocabulary.";
 
 std::unordered_map<std::pair<uint64_t, uint64_t>, int, pairHash> pairCounts;
+std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> encodedTokens;
 std::vector<uint64_t> encodedString;
 uint64_t nextEncodedToken = CHAR_MAX + 1;
 
@@ -88,7 +89,14 @@ int main()
             }
         }
 
+        encodedTokens[nextEncodedToken] = mostFrequentPair;
+
         ++nextEncodedToken;
+    }
+
+    for (const auto& kvp : encodedTokens)
+    {
+        std::cout << kvp.first << " = " << kvp.second.first  << ' ' << kvp.second.second << std::endl;
     }
 
     return 0;
