@@ -2,6 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 
 project(BytePairEncoding)
 
-set(CMAKE_BUILD_TYPE Debug)
-add_compile_options(-funsigned-char)
 add_executable(BytePairEncoding ../src/main.cpp)
+
+target_compile_options(BytePairEncoding PRIVATE -Werror -Wall -Wextra -funsigned-char)
