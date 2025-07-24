@@ -1,0 +1,4 @@
+In the above example, the output of the BPE is a vocabulary, which can be used to encode any text that is written with the letters abcd.
+It will not be able to encode text containing other symbols, such as no.
+Even giving each of the 26 letters an entry in the vocabulary, since there are many languages in the world using many different scripts,
+inevitably some symbols would be unencodable by such a vocabulary.

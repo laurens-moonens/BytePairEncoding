@@ -1,0 +1,10 @@
+Use cases:
+
+- encode a file:
+    -e input_file.txt
+
+- decode a file:
+    -d encoded_file.txt
+
+- generate new text from an encoded file:
+    -g encoded_file.txt <nr_of_tokens_to_generate>

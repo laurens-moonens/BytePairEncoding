@@ -1,12 +1,13 @@
 #include <cassert>
 #include <climits>
-#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <ostream>
+#include <sstream>
+#include <string>
 #include <unordered_map>
-#include <vector>
+#include <fstream>
 
 struct pairHash
 {
@@ -18,42 +19,101 @@ struct pairHash
     }
 };
 
-// std::string input = "aaabdaaabac";
-std::string input =
-    "In the above example, the output of the BPE is a vocabulary, which can be used to encode any text that is written with the letters abcd. It will not be "
-    "able to encode text containing other symbols, such as no. Even giving each of the 26 letters an entry in the vocabulary, since there are many languages "
-    "in the world using many different scripts, inevitably some symbols would be unencodable by such a vocabulary.";
+typedef char16_t TOKEN;
 
-std::unordered_map<std::pair<uint16_t, uint16_t>, int, pairHash> pairCounts;
-std::map<uint16_t, std::pair<uint16_t, uint16_t>> encodedTokens;
-std::vector<uint16_t> encodedString;
-uint16_t nextEncodedToken = CHAR_MAX + 1;
+std::unordered_map<std::pair<TOKEN, TOKEN>, int, pairHash> pairCounts;
+std::map<TOKEN, std::pair<TOKEN, TOKEN>> encodedTokens;
+TOKEN nextEncodedToken = CHAR_MAX + 1;
 
+bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result);
+bool TryWriteEncodedTextToFile(std::basic_string<TOKEN>& encodedString, std::string& outputFilePath);
+void EncodeText(const std::string& input, std::basic_string<TOKEN>& result);
 void PrintTokenTable();
 void PrintTokenTableDecripted();
-void DecriptToken(uint16_t token, std::string& decriptedToken);
+void DecriptToken(TOKEN token, std::string& decriptedToken);
 
-int main()
+int main(int argc, char* argv[])
+{
+    for(int a = 0; a < argc; ++a)
+    {
+        char* arg = argv[a];
+        
+        if(strcmp(arg, "-e") == 0)
+        {
+            assert(a + 2 < argc);
+            std::string inputFile = argv[a + 1];
+            std::string outputFile = argv[a + 2];
+            ++a;
+
+            std::string input;
+            std::basic_string<TOKEN> encodedString;
+            if(TryReadTextFromFile(inputFile, input))
+            {
+                EncodeText(input, encodedString);
+                TryWriteEncodedTextToFile(encodedString, outputFile);
+            }
+        }
+    }
+
+    return 0;
+}
+
+bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result)
+{
+    std::ifstream file = std::ifstream(inputFilePath);
+
+    if(file.is_open() == false)
+    {
+        std::cout << "ERROR: Unable to open file at path " << inputFilePath << std::endl;
+        return false;
+    }
+
+    std::ostringstream stringStream;
+    stringStream << file.rdbuf();
+    file.close();
+
+    result = stringStream.str();
+
+    return true;
+}
+
+bool TryWriteEncodedTextToFile(std::u16string& encodedString, std::string& outputFilePath)
+{
+    std::basic_ofstream<TOKEN> outputFile = std::basic_ofstream<TOKEN>(outputFilePath);
+
+    if(outputFile.is_open() == false)
+    {
+        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
+        return false;
+    }
+
+    outputFile << encodedString;
+    outputFile.close();
+
+    return true;
+}
+
+void EncodeText(const std::string& input, std::basic_string<TOKEN>& result)
 {
     for (int i = 0; i < input.size(); ++i)
     {
-        encodedString.push_back(input[i]);
+        result.push_back(input[i]);
     }
 
     while (true)
     {
         pairCounts.clear();
 
-        for (int i = 0; i < encodedString.size() - 1; ++i)
+        for (int i = 0; i < result.size() - 1; ++i)
         {
-            std::pair<uint16_t, uint16_t> pair{encodedString[i], encodedString[i + 1]};
+            std::pair<TOKEN, TOKEN> pair{result[i], result[i + 1]};
             pairCounts[pair] += 1;
         }
 
-        std::pair<uint16_t, uint16_t> mostFrequentPair;
+        std::pair<TOKEN, TOKEN> mostFrequentPair;
         int mostFrequentCount{0};
 
-        for (std::pair<std::pair<uint16_t, uint16_t>, int> kvp : pairCounts)
+        for (std::pair<std::pair<TOKEN, TOKEN>, int> kvp : pairCounts)
         {
             if (kvp.second > mostFrequentCount)
             {
@@ -70,29 +130,29 @@ int main()
             break;
         }
 
-        size_t encodedStringSize = encodedString.size();
-        uint16_t encodedStringCopy[encodedStringSize];
-        std::copy(encodedString.begin(), encodedString.end(), encodedStringCopy);
-        encodedString.clear();
+        size_t encodedStringSize = result.size();
+        TOKEN encodedStringCopy[encodedStringSize];
+        std::copy(result.begin(), result.end(), encodedStringCopy);
+        result.clear();
 
         for (int i = 0; i < encodedStringSize; ++i)
         {
             if (i == encodedStringSize - 1)
             {
-                encodedString.push_back(encodedStringCopy[i]);
+                result.push_back(encodedStringCopy[i]);
                 continue;
             }
 
-            std::pair<uint16_t, uint16_t> pair{encodedStringCopy[i], encodedStringCopy[i + 1]};
+            std::pair<TOKEN, TOKEN> pair{encodedStringCopy[i], encodedStringCopy[i + 1]};
 
             if (pair == mostFrequentPair)
             {
-                encodedString.push_back(nextEncodedToken);
+                result.push_back(nextEncodedToken);
                 ++i;
             }
             else
             {
-                encodedString.push_back(encodedStringCopy[i]);
+                result.push_back(encodedStringCopy[i]);
             }
         }
 
@@ -100,10 +160,6 @@ int main()
 
         ++nextEncodedToken;
     }
-
-    PrintTokenTableDecripted();
-
-    return 0;
 }
 
 void PrintTokenTable()
@@ -155,11 +211,11 @@ void PrintTokenTableDecripted()
     }
 }
 
-void DecriptToken(uint16_t token, std::string& decriptedToken)
+void DecriptToken(TOKEN token, std::string& decriptedToken)
 {
     assert(token > CHAR_MAX);
 
-    std::pair<uint16_t, uint16_t> pair = encodedTokens[token];
+    std::pair<TOKEN, TOKEN> pair = encodedTokens[token];
 
     if (pair.first > CHAR_MAX)
     {
