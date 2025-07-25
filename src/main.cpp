@@ -9,6 +9,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 struct pairHash
 {
@@ -21,17 +22,17 @@ struct pairHash
 };
 
 typedef char16_t TOKEN;
+const int FIRST_TOKEN = CHAR_MAX + 1;
 
-TOKEN nextEncodedToken = CHAR_MAX + 1;
-
+bool TryWriteTextToFile(const std::string& textToWrite, const std::string& outputFilePath);
 bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result);
-bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::map<TOKEN, std::pair<TOKEN, TOKEN>>& tokens);
 bool TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath);
+bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens);
 std::basic_string<TOKEN> EncodeText(const std::string& input);
-std::string DecodeString(const std::basic_string<TOKEN>& input, const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& tokens);
+std::string DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens);
 void PrintTokenTable(const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens);
 void PrintTokenTableDecoded(const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens);
-void DecodeToken(TOKEN token, std::string& decriptedToken, const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens);
+void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
 
 int main(int argc, char** argv)
 {
@@ -61,7 +62,7 @@ int main(int argc, char** argv)
             ++a;
 
             std::basic_string<TOKEN> encodedInput;
-            std::map<TOKEN, std::pair<TOKEN, TOKEN>> tokens;
+            std::vector<std::pair<TOKEN, TOKEN>> tokens;
 
             if (TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
             {
@@ -69,15 +70,33 @@ int main(int argc, char** argv)
                 return -1;
             }
 
-            TryWriteEncodedTextToFile(encodedInput, outputFile);
+            std::string decodedText = DecodeString(encodedInput, tokens);
 
-            //encodedStringStream.getline(encodedInput.data(), rawInput.size());
-
-            //DecodeString(encodedInput, tokens);
+            if (TryWriteTextToFile(decodedText, outputFile) == false)
+            {
+                std::cout << "ERROR: Failed to write decoded text to file." << std::endl;
+                return -1;
+            }
         }
     }
 
     return 0;
+}
+
+bool TryWriteTextToFile(const std::string& textToWrite, const std::string& outputFilePath)
+{
+    std::ofstream outputFile(outputFilePath);
+
+    if (outputFile.is_open() == false)
+    {
+        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
+        return false;
+    }
+
+    outputFile << textToWrite;
+    outputFile.close();
+
+    return true;
 }
 
 bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result)
@@ -115,7 +134,7 @@ bool TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, co
     return true;
 }
 
-bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::map<TOKEN, std::pair<TOKEN, TOKEN>>& tokens)
+bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens)
 {
     auto vat = tokens;
 
@@ -131,7 +150,7 @@ bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_str
     std::streamsize fileLength = file.tellg();
     file.seekg(0, file.beg);
 
-    if (fileLength % (sizeof(TOKEN) / sizeof(char)))
+    if (fileLength % (sizeof(TOKEN) / sizeof(char)) != 0)
     {
         std::cout << "ERROR: Bad UTF-16 format (odd number of bytes)" << std::endl;
     }
@@ -140,6 +159,12 @@ bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_str
     while (file.read(reinterpret_cast<char*>(&token), sizeof(TOKEN)) && token > 0)
     {
         encodedString.push_back(token);
+    }
+
+    std::pair<TOKEN, TOKEN> tokenPair;
+    while (file.read(reinterpret_cast<char*>(&tokenPair.first), sizeof(TOKEN)) && file.read(reinterpret_cast<char*>(&tokenPair.second), sizeof(TOKEN)))
+    {
+        tokens.push_back(tokenPair);
     }
 
     file.close();
@@ -161,7 +186,9 @@ std::basic_string<TOKEN> EncodeText(const std::string& input)
     encodedStringCopy.reserve(input.size());
 
     std::unordered_map<std::pair<TOKEN, TOKEN>, int, pairHash> pairCounts;
-    std::map<TOKEN, std::pair<TOKEN, TOKEN>> encodedTokens;
+    std::vector<std::pair<TOKEN, TOKEN>> encodedTokens;
+
+    TOKEN nextEncodedToken = FIRST_TOKEN;
 
     while (true)
     {
@@ -218,34 +245,31 @@ std::basic_string<TOKEN> EncodeText(const std::string& input)
             }
         }
 
-        encodedTokens[nextEncodedToken] = mostFrequentPair;
+        assert((int)(encodedTokens.size()) == (nextEncodedToken - FIRST_TOKEN));
+        encodedTokens.push_back(mostFrequentPair);
 
         ++nextEncodedToken;
     }
 
-    //return;
-
     result.push_back(0);
 
-    for (const std::pair<TOKEN, std::pair<TOKEN, TOKEN>> kvp : encodedTokens)
+    for (const std::pair<TOKEN, TOKEN> kvp : encodedTokens)
     {
         result.push_back(kvp.first);
-        result.push_back(kvp.second.first);
-        result.push_back(kvp.second.second);
+        result.push_back(kvp.second);
     }
 
     return result;
 }
 
-std::string DecodeString(const std::basic_string<TOKEN>& input, const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& tokens)
+std::string DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens)
 {
     std::string result;
     result.reserve(input.size() * 2);
-    auto a = tokens;
 
-    //for (const TOKEN& token : input)
+    for (const TOKEN& token : input)
     {
-        //DecodeToken(token);
+        DecodeToken(token, result, tokens);
     }
 
     return result;
@@ -290,37 +314,27 @@ void PrintTokenTable(const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedToke
     }
 }
 
-void PrintTokenTableDecoded(const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens)
+//void PrintTokenTableDecoded(const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens)
+//{
+//    for (const auto& kvp : encodedTokens)
+//    {
+//        std::string decriptedToken;
+//        DecodeToken(kvp.first, decriptedToken, encodedTokens);
+//        std::cout << decriptedToken << std::endl;
+//    }
+//}
+
+void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens)
 {
-    for (const auto& kvp : encodedTokens)
+    if (token < FIRST_TOKEN)
     {
-        std::string decriptedToken;
-        DecodeToken(kvp.first, decriptedToken, encodedTokens);
-        std::cout << decriptedToken << std::endl;
-    }
-}
-
-void DecodeToken(TOKEN token, std::string& decriptedToken, const std::map<TOKEN, std::pair<TOKEN, TOKEN>>& encodedTokens)
-{
-    assert(token > CHAR_MAX);
-
-    std::pair<TOKEN, TOKEN> pair = encodedTokens.at(token);
-
-    if (pair.first > CHAR_MAX)
-    {
-        DecodeToken(pair.first, decriptedToken, encodedTokens);
-    }
-    else
-    {
-        decriptedToken.push_back(pair.first);
+        decodedToken.push_back(token);
+        return;
     }
 
-    if (pair.second > CHAR_MAX)
-    {
-        DecodeToken(pair.second, decriptedToken, encodedTokens);
-    }
-    else
-    {
-        decriptedToken.push_back(pair.second);
-    }
+    TOKEN tokenPairIndex = token - FIRST_TOKEN;
+    std::pair<TOKEN, TOKEN> pair = encodedTokens.at(tokenPairIndex);
+
+    DecodeToken(pair.first, decodedToken, encodedTokens);
+    DecodeToken(pair.second, decodedToken, encodedTokens);
 }
