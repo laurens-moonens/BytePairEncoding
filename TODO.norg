@@ -8,3 +8,12 @@ Use cases:
 
 - generate new text from an encoded file:
     -g encoded_file.txt <nr_of_tokens_to_generate>
+
+- split bpe table and tokens
+
+- more flexible flags:
+    -e = --encode
+    - ability to combine flags without having to specify multiple input or output files
+    - better error handling and logging in case of missing flags
+
+- support for specifying input character size (unicode) and output token size
