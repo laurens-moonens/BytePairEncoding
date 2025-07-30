@@ -1,38 +1,154 @@
 #include <cassert>
-#include <climits>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
+#include <exception>
+#include <filesystem>
+#include <format>
 #include <iostream>
+#include <print>
+#include <queue>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
+#include <string_view>
 #include <vector>
 
-struct pairHash
+#include "BPE.h"
+
+void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::SubCommand::NONE)
 {
-    template <class T1, class T2>
-    std::size_t operator()(const std::pair<T1, T2>& p) const
+    if (subCommand == BPE::SubCommand::NONE)
     {
-        auto h1 = std::hash<T1>{}(p.first);
-        auto h2 = std::hash<T2>{}(p.second);
-        return h1 ^ h2;
+        std::println();
+        std::println("Usage: {} <command> [options]", programName);
+        std::println();
+        std::println("Commands:");
+        std::println("\tencode\t Encode the input file using byte pair encoding");
+        std::println();
+        std::println("Options:");
     }
-};
+    else
+    {
+        switch (subCommand)
+        {
+            case BPE::SubCommand::Encode:
+                std::println();
+                std::println("Usage: {} encode -i <input> -b <bpe-output> [-t <token-output>]", programName);
+                std::println();
+                std::println("Options:");
+                std::println("\t-i <file>\t Input file to encode (REQUIRED)");
+                std::println("\t-b <file>\t Output file containing the BPE table (REQUIRED)");
+                std::println("\t-t <file>\t Output file containing the encoded tokens (optional)");
+                std::println();
+                break;
+            default:
+                throw std::runtime_error("Subcommand not implemented");
+                break;
+        }
+    }
 
-typedef char16_t TOKEN;
-const int FIRST_TOKEN = CHAR_MAX + 1;
+    std::println("\t-h, --help\t Print this help message");
+    std::println();
+}
 
-bool TryWriteTextToFile(const std::string& textToWrite, const std::string& outputFilePath);
-bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result);
-bool TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath);
-bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens);
-std::basic_string<TOKEN> EncodeText(const std::string& input);
-std::string DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens);
-void PrintTokenTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
-void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
-
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
+    BPE bpe{};
+    BPE::SubCommand subCommand{BPE::SubCommand::NONE};
+
+    std::string_view programName{argv[0]};
+
+    std::queue<std::string_view> args{argv + 1, argv + argc};
+
+    if (args.size() <= 0)
+    {
+        std::println(stderr, "ERROR: Missing command");
+        PrintUsage(programName);
+        return 1;
+    }
+
+    std::string_view subCommandArg{args.front()};
+    args.pop();
+
+    if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
+    else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
+    else if (subCommandArg == "-h" || subCommandArg == "--help")
+    {
+        PrintUsage(programName);
+        return 0;
+    }
+    else
+    {
+        std::println(stderr, "ERROR: Unknown command {}", subCommandArg);
+        PrintUsage(programName);
+        return 1;
+    }
+
+    if (args.size() > 0 && (args.front() == "-h" || args.front() == "--help"))
+    {
+        PrintUsage(programName, subCommand);
+        return 0;
+    }
+
+    switch (subCommand)
+    {
+        case BPE::SubCommand::Encode:
+        {
+            std::filesystem::path inputFilePath{};
+            std::filesystem::path outputFilePath{};
+
+            while (args.size() > 0)
+            {
+                std::string_view arg{args.front()};
+                args.pop();
+
+                if (arg == "-i")
+                {
+                    inputFilePath = args.front();
+                    args.pop();
+                }
+                else if (arg == "-o")
+                {
+                    outputFilePath = args.front();
+                    args.pop();
+                }
+                else
+                {
+                    std::println("ERROR: Unknown option '{}'", arg);
+                    PrintUsage(programName, subCommand);
+                    return 1;
+                }
+            }
+
+            if (inputFilePath.empty())
+            {
+                std::println(stderr, "ERROR: Missing option '-i <file>'");
+                PrintUsage(programName, subCommand);
+                return 1;
+            }
+
+            if (outputFilePath.empty())
+            {
+                std::println(stderr, "ERROR: Missing option '-o <file>'");
+                PrintUsage(programName, subCommand);
+                return 1;
+            }
+
+            std::expected<std::string, std::string> fileData{bpe.TryReadTextFromFile(inputFilePath)};
+            if (!fileData.has_value())
+            {
+                std::println(stderr, "{}", fileData.error());
+                return 1;
+            }
+
+            break;
+        }
+        case BPE::SubCommand::NONE:
+        default:
+            throw std::runtime_error("Subcommand not implemented");
+            break;
+    }
+
+    return 0;
+
     for (int a = 0; a < argc; ++a)
     {
         char* arg = argv[a];
@@ -45,11 +161,14 @@ int main(int argc, char** argv)
             a += 2;
 
             std::string input;
-            if (TryReadTextFromFile(inputFile, input))
-            {
-                std::basic_string<TOKEN> encodedString = EncodeText(input);
-                TryWriteEncodedTextToFile(encodedString, outputFile);
-            }
+            //if (!bpe.TryReadTextFromFile(inputFile, input))
+            //{
+            //    std::print(stderr, "ERROR: Failed to read text from file {}", inputFile);
+            //    continue;
+            //}
+
+            std::basic_string<BPE::TOKEN> encodedString = bpe.EncodeText(input);
+            bpe.TryWriteEncodedTextToFile(encodedString, outputFile);
         }
         else if (strcmp(arg, "-d") == 0)
         {
@@ -58,277 +177,41 @@ int main(int argc, char** argv)
             std::string outputFile = argv[a + 2];
             a += 2;
 
-            std::basic_string<TOKEN> encodedInput;
-            std::vector<std::pair<TOKEN, TOKEN>> tokens;
+            std::basic_string<BPE::TOKEN> encodedInput;
+            std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>> tokens;
 
-            if (TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
+            if (bpe.TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
             {
                 std::cout << "ERROR: Failed to read raw encoded input from file." << std::endl;
                 return -1;
             }
 
-            std::string decodedText = DecodeString(encodedInput, tokens);
+            std::string decodedText = bpe.DecodeString(encodedInput, tokens);
 
-            if (TryWriteTextToFile(decodedText, outputFile) == false)
+            if (bpe.TryWriteTextToFile(decodedText, outputFile) == false)
             {
                 std::cout << "ERROR: Failed to write decoded text to file." << std::endl;
                 return -1;
             }
         }
-        else if (strcmp(arg, "-i") == 0)
+        else if (strcmp(arg, "-p") == 0)
         {
             assert(a + 1 < argc);
             std::string inputFile = argv[a + 1];
             ++a;
 
-            std::basic_string<TOKEN> encodedInput;
-            std::vector<std::pair<TOKEN, TOKEN>> tokens;
+            std::basic_string<BPE::TOKEN> encodedInput;
+            std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>> tokens;
 
-            if (TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
+            if (bpe.TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
             {
                 std::cout << "ERROR: Failed to read raw encoded input from file." << std::endl;
                 return -1;
             }
 
-            PrintTokenTable(tokens);
+            bpe.PrintTokenTable(tokens);
         }
     }
 
     return 0;
-}
-
-bool TryWriteTextToFile(const std::string& textToWrite, const std::string& outputFilePath)
-{
-    std::ofstream outputFile(outputFilePath);
-
-    if (outputFile.is_open() == false)
-    {
-        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
-        return false;
-    }
-
-    outputFile << textToWrite;
-    outputFile.close();
-
-    return true;
-}
-
-bool TryReadTextFromFile(const std::string& inputFilePath, std::string& result)
-{
-    std::ifstream file(inputFilePath);
-
-    if (file.is_open() == false)
-    {
-        std::cout << "ERROR: Unable to open file at path " << inputFilePath << std::endl;
-        return false;
-    }
-
-    std::ostringstream stringStream;
-    stringStream << file.rdbuf();
-    file.close();
-
-    result = stringStream.str();
-
-    return true;
-}
-
-bool TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath)
-{
-    std::ofstream outputFile(outputFilePath, std::ios::binary);
-
-    if (outputFile.is_open() == false)
-    {
-        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
-        return false;
-    }
-
-    outputFile.write(reinterpret_cast<const char*>(encodedString.data()), encodedString.size() * sizeof(TOKEN));
-    outputFile.close();
-
-    return true;
-}
-
-bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens)
-{
-    auto vat = tokens;
-
-    std::ifstream file(inputFilePath, std::ios::binary);
-
-    if (file.is_open() == false)
-    {
-        std::cout << "ERROR: Unable to open file at path " << inputFilePath << std::endl;
-        return false;
-    }
-
-    file.seekg(0, file.end);
-    std::streamsize fileLength = file.tellg();
-    file.seekg(0, file.beg);
-
-    if (fileLength % (sizeof(TOKEN) / sizeof(char)) != 0)
-    {
-        std::cout << "ERROR: Bad UTF-16 format (odd number of bytes)" << std::endl;
-    }
-
-    TOKEN token;
-    while (file.read(reinterpret_cast<char*>(&token), sizeof(TOKEN)) && token > 0)
-    {
-        encodedString.push_back(token);
-    }
-
-    std::pair<TOKEN, TOKEN> tokenPair;
-    while (file.read(reinterpret_cast<char*>(&tokenPair.first), sizeof(TOKEN)) && file.read(reinterpret_cast<char*>(&tokenPair.second), sizeof(TOKEN)))
-    {
-        tokens.push_back(tokenPair);
-    }
-
-    file.close();
-
-    return true;
-}
-
-std::basic_string<TOKEN> EncodeText(const std::string& input)
-{
-    std::basic_string<TOKEN> result;
-    result.reserve(input.size());
-
-    for (const char& i : input)
-    {
-        result.push_back(i);
-    }
-
-    std::basic_string<TOKEN> encodedStringCopy;
-    encodedStringCopy.reserve(input.size());
-
-    std::unordered_map<std::pair<TOKEN, TOKEN>, int, pairHash> pairCounts;
-    std::vector<std::pair<TOKEN, TOKEN>> encodedTokens;
-
-    TOKEN nextEncodedToken = FIRST_TOKEN;
-
-    while (true)
-    {
-        pairCounts.clear();
-
-        for (size_t i = 0; i < result.size() - 1; ++i)
-        {
-            std::pair<TOKEN, TOKEN> pair{result[i], result[i + 1]};
-            pairCounts[pair] += 1;
-        }
-
-        std::pair<TOKEN, TOKEN> mostFrequentPair;
-        int mostFrequentCount{0};
-
-        for (std::pair<std::pair<TOKEN, TOKEN>, int> kvp : pairCounts)
-        {
-            if (kvp.second > mostFrequentCount)
-            {
-                mostFrequentPair = kvp.first;
-                mostFrequentCount = kvp.second;
-            }
-        }
-
-        // std::cout << mostFrequentPair.first << ' ' << mostFrequentPair.second <<
-        // " = " << mostFrequentCount << std::endl;
-
-        if (mostFrequentCount <= 1)
-        {
-            break;
-        }
-
-        size_t encodedStringSize = result.size();
-        encodedStringCopy = result;
-        result.clear();
-
-        for (size_t i = 0; i < encodedStringSize; ++i)
-        {
-            if (i == encodedStringSize - 1)
-            {
-                result.push_back(encodedStringCopy[i]);
-                continue;
-            }
-
-            std::pair<TOKEN, TOKEN> pair{encodedStringCopy[i], encodedStringCopy[i + 1]};
-
-            if (pair == mostFrequentPair)
-            {
-                result.push_back(nextEncodedToken);
-                ++i;
-            }
-            else
-            {
-                result.push_back(encodedStringCopy[i]);
-            }
-        }
-
-        assert((int)(encodedTokens.size()) == (nextEncodedToken - FIRST_TOKEN));
-        encodedTokens.push_back(mostFrequentPair);
-
-        ++nextEncodedToken;
-    }
-
-    result.push_back(0);
-
-    for (const std::pair<TOKEN, TOKEN> kvp : encodedTokens)
-    {
-        result.push_back(kvp.first);
-        result.push_back(kvp.second);
-    }
-
-    return result;
-}
-
-std::string DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens)
-{
-    std::string result;
-    result.reserve(input.size() * 2);
-
-    for (const TOKEN& token : input)
-    {
-        DecodeToken(token, result, tokens);
-    }
-
-    return result;
-}
-
-void PrintTokenTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens)
-{
-    for (TOKEN token = 0; token < encodedTokens.size(); ++token)
-    {
-        std::pair<TOKEN, TOKEN> tokenPair = encodedTokens.at(token);
-
-        std::string decriptedToken;
-
-        DecodeToken(tokenPair.first, decriptedToken, encodedTokens);
-        DecodeToken(tokenPair.second, decriptedToken, encodedTokens);
-
-        std::cout << std::dec << token + FIRST_TOKEN << " = |";
-
-        for (size_t i = 0; i < decriptedToken.size(); ++i)
-        {
-            if (std::isprint(decriptedToken[i]))
-            {
-                std::cout << decriptedToken[i];
-            }
-            else
-            {
-                std::cout << "\\x" << std::setfill('0') << std::setw(2) << std::hex << (uint)decriptedToken[i];
-            }
-        }
-
-        std::cout << '|' << std::endl;
-    }
-}
-
-void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens)
-{
-    if (token < FIRST_TOKEN)
-    {
-        decodedToken.push_back(token);
-        return;
-    }
-
-    TOKEN tokenPairIndex = token - FIRST_TOKEN;
-    std::pair<TOKEN, TOKEN> pair = encodedTokens.at(tokenPairIndex);
-
-    DecodeToken(pair.first, decodedToken, encodedTokens);
-    DecodeToken(pair.second, decodedToken, encodedTokens);
 }
