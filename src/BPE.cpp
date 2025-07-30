@@ -1,6 +1,7 @@
 #include "BPE.h"
 
 #include <cassert>
+#include <expected>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -28,7 +29,7 @@ std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::file
 
     if (file.is_open() == false)
     {
-        return std::unexpected(std::format("ERROR: Unable to open file at path \"{}\"", inputFilePath.c_str()));
+        return std::unexpected{std::format("ERROR: Unable to open file at path \"{}\"", inputFilePath.c_str())};
     }
 
     uintmax_t fileSize{std::filesystem::file_size(inputFilePath)};
@@ -38,20 +39,19 @@ std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::file
     return content;
 }
 
-bool BPE::TryWriteEncodedTextToFile(const std::basic_string<BPE::TOKEN>& encodedString, const std::string& outputFilePath)
+std::expected<void, std::string> BPE::TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath)
 {
-    std::ofstream outputFile(outputFilePath, std::ios::binary);
+    std::ofstream outputFile{outputFilePath, std::ios::binary};
 
     if (outputFile.is_open() == false)
     {
-        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
-        return false;
+        return std::unexpected{std::format("ERROR: Unable to open or create output file at path {}", outputFilePath)};
     }
 
     outputFile.write(reinterpret_cast<const char*>(encodedString.data()), encodedString.size() * sizeof(BPE::TOKEN));
     outputFile.close();
 
-    return true;
+    return {};
 }
 
 bool BPE::TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<BPE::TOKEN>& encodedString, std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& tokens)

@@ -51,7 +51,6 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
 
 int main(int argc, char* argv[])
 {
-    BPE bpe{};
     BPE::SubCommand subCommand{BPE::SubCommand::NONE};
 
     std::string_view programName{argv[0]};
@@ -138,14 +137,16 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            std::expected<std::string, std::string> inputData{bpe.TryReadTextFromFile(inputFilePath)};
+            std::expected<std::string, std::string> inputData{BPE::TryReadTextFromFile(inputFilePath)};
             if (!inputData.has_value())
             {
                 std::println(stderr, "{}", inputData.error());
                 return 1;
             }
 
-            auto [bpeTable, encodedString] = bpe.EncodeText(inputData.value());
+            auto [bpeTable, encodedString] = BPE::EncodeText(inputData.value());
+
+            //bpe.TryWriteEncodedTextToFile(const)
 
             break;
         }
@@ -157,6 +158,7 @@ int main(int argc, char* argv[])
 
     return 0;
 
+    /*
     for (int a = 0; a < argc; ++a)
     {
         char* arg = argv[a];
@@ -219,7 +221,7 @@ int main(int argc, char* argv[])
 
             bpe.PrintTokenTable(tokens);
         }
-    }
+    }*/
 
     return 0;
 }

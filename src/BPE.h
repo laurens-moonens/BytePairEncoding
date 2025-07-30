@@ -1,13 +1,11 @@
-#include <string>
-#include <filesystem>
-#include <vector>
 #include <climits>
 #include <expected>
+#include <filesystem>
+#include <string>
+#include <vector>
 
-class BPE
+namespace BPE
 {
-public:
-
     enum class SubCommand
     {
         NONE = -1,
@@ -19,10 +17,9 @@ public:
     typedef char16_t TOKEN;
     const TOKEN FIRST_TOKEN{CHAR_MAX + 1};
 
-
     bool TryWriteTextToFile(const std::string& textToWrite, const std::filesystem::path& outputFilePath);
     std::expected<std::string, std::string> TryReadTextFromFile(const std::filesystem::path& inputFilePath);
-    bool TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath);
+    std::expected<void, std::string> TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath);
     bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens);
 
     std::tuple<std::basic_string<TOKEN>, std::basic_string<TOKEN>> EncodeText(const std::string& input);
@@ -30,7 +27,6 @@ public:
     void PrintTokenTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
     void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
 
-private:
     struct PairHash
     {
         template <class T1, class T2>
@@ -41,6 +37,4 @@ private:
             return h1 ^ h2;
         }
     };
-
-
-};
+} //namespace BPE
