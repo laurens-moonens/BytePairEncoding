@@ -24,16 +24,16 @@ bool BPE::TryWriteTextToFile(const std::string& textToWrite, const std::filesyst
 
 std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::filesystem::path& inputFilePath)
 {
-    std::ifstream file(inputFilePath);
+    std::ifstream file{inputFilePath};
 
     if (file.is_open() == false)
     {
         return std::unexpected(std::format("ERROR: Unable to open file at path \"{}\"", inputFilePath.c_str()));
     }
 
-    auto size = std::filesystem::file_size(inputFilePath);
-    std::string content(size, '\0');
-    file.read(&content[0], size);
+    uintmax_t fileSize{std::filesystem::file_size(inputFilePath)};
+    std::string content(fileSize, '\0');
+    file.read(&content[0], fileSize);
 
     return content;
 }
@@ -92,35 +92,35 @@ bool BPE::TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basi
     return true;
 }
 
-std::basic_string<BPE::TOKEN> BPE::EncodeText(const std::string& input)
+std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>> BPE::EncodeText(const std::string& input)
 {
-    std::basic_string<BPE::TOKEN> result;
-    result.reserve(input.size());
+    std::basic_string<BPE::TOKEN> encodedString{};
+    encodedString.reserve(input.size());
 
     for (const char& i : input)
     {
-        result.push_back(i);
+        encodedString.push_back(i);
     }
 
-    std::basic_string<BPE::TOKEN> encodedStringCopy;
+    std::basic_string<BPE::TOKEN> encodedStringCopy{};
     encodedStringCopy.reserve(input.size());
 
     std::unordered_map<std::pair<BPE::TOKEN, BPE::TOKEN>, int, BPE::PairHash> pairCounts;
-    std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>> encodedTokens;
+    std::basic_string<BPE::TOKEN> bpeTable;
 
-    BPE::TOKEN nextEncodedToken = FIRST_TOKEN;
+    BPE::TOKEN nextEncodedToken{FIRST_TOKEN};
 
     while (true)
     {
         pairCounts.clear();
 
-        for (size_t i = 0; i < result.size() - 1; ++i)
+        for (size_t i = 0; i < encodedString.size() - 1; ++i)
         {
-            std::pair<BPE::TOKEN, BPE::TOKEN> pair{result[i], result[i + 1]};
+            std::pair<BPE::TOKEN, BPE::TOKEN> pair{encodedString[i], encodedString[i + 1]};
             pairCounts[pair] += 1;
         }
 
-        std::pair<BPE::TOKEN, BPE::TOKEN> mostFrequentPair;
+        std::pair<BPE::TOKEN, BPE::TOKEN> mostFrequentPair{};
         int mostFrequentCount{0};
 
         for (std::pair<std::pair<BPE::TOKEN, BPE::TOKEN>, int> kvp : pairCounts)
@@ -132,23 +132,20 @@ std::basic_string<BPE::TOKEN> BPE::EncodeText(const std::string& input)
             }
         }
 
-        // std::cout << mostFrequentPair.first << ' ' << mostFrequentPair.second <<
-        // " = " << mostFrequentCount << std::endl;
-
         if (mostFrequentCount <= 1)
         {
             break;
         }
 
-        size_t encodedStringSize = result.size();
-        encodedStringCopy = result;
-        result.clear();
+        size_t encodedStringSize{encodedString.size()};
+        encodedStringCopy = encodedString;
+        encodedString.clear();
 
-        for (size_t i = 0; i < encodedStringSize; ++i)
+        for (size_t i = 0; i < encodedStringCopy.size(); ++i)
         {
             if (i == encodedStringSize - 1)
             {
-                result.push_back(encodedStringCopy[i]);
+                encodedString.push_back(encodedStringCopy[i]);
                 continue;
             }
 
@@ -156,30 +153,23 @@ std::basic_string<BPE::TOKEN> BPE::EncodeText(const std::string& input)
 
             if (pair == mostFrequentPair)
             {
-                result.push_back(nextEncodedToken);
+                encodedString.push_back(nextEncodedToken);
                 ++i;
             }
             else
             {
-                result.push_back(encodedStringCopy[i]);
+                encodedString.push_back(encodedStringCopy[i]);
             }
         }
 
-        assert((int)(encodedTokens.size()) == (nextEncodedToken - FIRST_TOKEN));
-        encodedTokens.push_back(mostFrequentPair);
+        assert((int)(bpeTable.size()) == (nextEncodedToken - FIRST_TOKEN));
+        bpeTable.push_back(mostFrequentPair.first);
+        bpeTable.push_back(mostFrequentPair.second);
 
         ++nextEncodedToken;
     }
 
-    result.push_back(0);
-
-    for (const std::pair<BPE::TOKEN, BPE::TOKEN> kvp : encodedTokens)
-    {
-        result.push_back(kvp.first);
-        result.push_back(kvp.second);
-    }
-
-    return result;
+    return {bpeTable, encodedString};
 }
 
 std::string BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& tokens)

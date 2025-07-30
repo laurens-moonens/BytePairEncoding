@@ -7,6 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(bpe src/main.cpp src/BPE.cpp src/Flags.cpp)
+add_executable(bpe src/main.cpp src/BPE.cpp)
 
 target_compile_options(bpe PRIVATE -Werror -Wall -Wextra -funsigned-char)

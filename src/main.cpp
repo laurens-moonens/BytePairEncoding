@@ -93,7 +93,8 @@ int main(int argc, char* argv[])
         case BPE::SubCommand::Encode:
         {
             std::filesystem::path inputFilePath{};
-            std::filesystem::path outputFilePath{};
+            std::filesystem::path bpeFilePath{};
+            std::filesystem::path tokenFilePath{};
 
             while (args.size() > 0)
             {
@@ -105,9 +106,14 @@ int main(int argc, char* argv[])
                     inputFilePath = args.front();
                     args.pop();
                 }
-                else if (arg == "-o")
+                else if (arg == "-b")
                 {
-                    outputFilePath = args.front();
+                    bpeFilePath = args.front();
+                    args.pop();
+                }
+                else if (arg == "-t")
+                {
+                    tokenFilePath = args.front();
                     args.pop();
                 }
                 else
@@ -125,19 +131,21 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            if (outputFilePath.empty())
+            if (bpeFilePath.empty())
             {
-                std::println(stderr, "ERROR: Missing option '-o <file>'");
+                std::println(stderr, "ERROR: Missing option '-b <file>'");
                 PrintUsage(programName, subCommand);
                 return 1;
             }
 
-            std::expected<std::string, std::string> fileData{bpe.TryReadTextFromFile(inputFilePath)};
-            if (!fileData.has_value())
+            std::expected<std::string, std::string> inputData{bpe.TryReadTextFromFile(inputFilePath)};
+            if (!inputData.has_value())
             {
-                std::println(stderr, "{}", fileData.error());
+                std::println(stderr, "{}", inputData.error());
                 return 1;
             }
+
+            auto [bpeTable, encodedString] = bpe.EncodeText(inputData.value());
 
             break;
         }
@@ -167,8 +175,8 @@ int main(int argc, char* argv[])
             //    continue;
             //}
 
-            std::basic_string<BPE::TOKEN> encodedString = bpe.EncodeText(input);
-            bpe.TryWriteEncodedTextToFile(encodedString, outputFile);
+            //std::basic_string<BPE::TOKEN> encodedString = bpe.EncodeText(input);
+            //bpe.TryWriteEncodedTextToFile(encodedString, outputFile);
         }
         else if (strcmp(arg, "-d") == 0)
         {
