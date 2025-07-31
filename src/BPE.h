@@ -17,7 +17,8 @@ namespace BPE
     typedef char16_t TOKEN;
     const TOKEN FIRST_TOKEN{CHAR_MAX + 1};
 
-    bool TryWriteTextToFile(const std::string& textToWrite, const std::filesystem::path& outputFilePath);
+    template <typename charType>
+    std::expected<void, std::string> TryWriteBasicStringToFile(const std::basic_string<charType>& dataToWrite, const std::filesystem::path& outputFilePath);
     std::expected<std::string, std::string> TryReadTextFromFile(const std::filesystem::path& inputFilePath);
     std::expected<void, std::string> TryWriteEncodedTextToFile(const std::basic_string<TOKEN>& encodedString, const std::string& outputFilePath);
     bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens);

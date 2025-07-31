@@ -1,15 +1,11 @@
 #include <cassert>
-#include <cstring>
-#include <exception>
 #include <filesystem>
 #include <format>
-#include <iostream>
 #include <print>
 #include <queue>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "BPE.h"
 
@@ -146,7 +142,22 @@ int main(int argc, char* argv[])
 
             auto [bpeTable, encodedString] = BPE::EncodeText(inputData.value());
 
-            //bpe.TryWriteEncodedTextToFile(const)
+            std::expected<void, std::string> writeBpeTableResult = BPE::TryWriteBasicStringToFile(bpeTable, bpeFilePath);
+            if (!writeBpeTableResult.has_value())
+            {
+                std::println(stderr, "{}", writeBpeTableResult.error());
+                return 1;
+            }
+
+            if (!tokenFilePath.empty())
+            {
+                std::expected<void, std::string> writeTokensResult = BPE::TryWriteBasicStringToFile(encodedString, tokenFilePath);
+                if (!writeTokensResult.has_value())
+                {
+                    std::println(stderr, "{}", writeTokensResult.error());
+                    return 1;
+                }
+            }
 
             break;
         }

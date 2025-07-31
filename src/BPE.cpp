@@ -7,20 +7,21 @@
 #include <iostream>
 #include <unordered_map>
 
-bool BPE::TryWriteTextToFile(const std::string& textToWrite, const std::filesystem::path& outputFilePath)
+template std::expected<void, std::string> BPE::TryWriteBasicStringToFile<BPE::TOKEN>(const std::basic_string<BPE::TOKEN>& textToWrite, const std::filesystem::path& outputFilePath);
+template <typename charType>
+std::expected<void, std::string> BPE::TryWriteBasicStringToFile(const std::basic_string<charType>& dataToWrite, const std::filesystem::path& outputFilePath)
 {
-    std::ofstream outputFile{outputFilePath};
+    std::ofstream outputFile{outputFilePath, std::ios::binary};
 
     if (outputFile.is_open() == false)
     {
-        std::cout << "ERROR: Unable to open or create output file at path " << outputFilePath << std::endl;
-        return false;
+        return std::unexpected(std::format("ERROR: Unable to open or create output file at path \"{}\"", outputFilePath.c_str()));
     }
 
-    outputFile << textToWrite;
+    outputFile.write(reinterpret_cast<const char*>(dataToWrite.data()), dataToWrite.size() * sizeof(charType));
     outputFile.close();
 
-    return true;
+    return {};
 }
 
 std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::filesystem::path& inputFilePath)
@@ -45,7 +46,7 @@ std::expected<void, std::string> BPE::TryWriteEncodedTextToFile(const std::basic
 
     if (outputFile.is_open() == false)
     {
-        return std::unexpected{std::format("ERROR: Unable to open or create output file at path {}", outputFilePath)};
+        return std::unexpected{std::format("ERROR: Unable to open or create output file at path \"{}\"", outputFilePath)};
     }
 
     outputFile.write(reinterpret_cast<const char*>(encodedString.data()), encodedString.size() * sizeof(BPE::TOKEN));
@@ -162,7 +163,7 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>> BPE::En
             }
         }
 
-        assert((int)(bpeTable.size()) == (nextEncodedToken - FIRST_TOKEN));
+        assert((int)(bpeTable.size()) == (nextEncodedToken - FIRST_TOKEN) * 2);
         bpeTable.push_back(mostFrequentPair.first);
         bpeTable.push_back(mostFrequentPair.second);
 
