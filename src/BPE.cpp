@@ -2,11 +2,14 @@
 
 #include <cassert>
 #include <expected>
+#include <format>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <print>
 #include <unordered_map>
 
+template std::expected<void, std::string> BPE::TryWriteBasicStringToFile<std::string::value_type>(const std::basic_string<std::string::value_type>& textToWrite, const std::filesystem::path& outputFilePath);
 template std::expected<void, std::string> BPE::TryWriteBasicStringToFile<BPE::TOKEN>(const std::basic_string<BPE::TOKEN>& textToWrite, const std::filesystem::path& outputFilePath);
 template <typename charType>
 std::expected<void, std::string> BPE::TryWriteBasicStringToFile(const std::basic_string<charType>& dataToWrite, const std::filesystem::path& outputFilePath)
@@ -24,7 +27,11 @@ std::expected<void, std::string> BPE::TryWriteBasicStringToFile(const std::basic
     return {};
 }
 
-std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::filesystem::path& inputFilePath)
+template std::expected<std::string, std::string> BPE::TryReadFileIntoContainer(const std::filesystem::path& inputFilePath);
+template std::expected<std::basic_string<BPE::TOKEN>, std::string> BPE::TryReadFileIntoContainer(const std::filesystem::path& inputFilePath);
+template std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> BPE::TryReadFileIntoContainer(const std::filesystem::path& inputFilePath);
+template <typename ContainerType>
+std::expected<ContainerType, std::string> BPE::TryReadFileIntoContainer(const std::filesystem::path& inputFilePath)
 {
     std::ifstream file{inputFilePath};
 
@@ -34,8 +41,15 @@ std::expected<std::string, std::string> BPE::TryReadTextFromFile(const std::file
     }
 
     uintmax_t fileSize{std::filesystem::file_size(inputFilePath)};
-    std::string content(fileSize, '\0');
-    file.read(&content[0], fileSize);
+
+    if (fileSize % (sizeof(typename ContainerType::value_type)) != 0)
+    {
+        return std::unexpected{std::format("ERROR: Input file size (\"{}\" with size {}) was not divisible by the templated data type with size {}", inputFilePath.c_str(), fileSize, sizeof(typename ContainerType::value_type))};
+    }
+
+    ContainerType content{};
+    content.resize(fileSize / sizeof(typename ContainerType::value_type));
+    file.read(reinterpret_cast<char*>(content.data()), fileSize);
 
     return content;
 }
@@ -57,8 +71,6 @@ std::expected<void, std::string> BPE::TryWriteEncodedTextToFile(const std::basic
 
 bool BPE::TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<BPE::TOKEN>& encodedString, std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& tokens)
 {
-    auto vat = tokens;
-
     std::ifstream file(inputFilePath, std::ios::binary);
 
     if (file.is_open() == false)
@@ -93,7 +105,7 @@ bool BPE::TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basi
     return true;
 }
 
-std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>> BPE::EncodeText(const std::string& input)
+std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>, BPE::BpeEncodingResultInfo> BPE::EncodeText(const std::string& input)
 {
     std::basic_string<BPE::TOKEN> encodedString{};
     encodedString.reserve(input.size());
@@ -111,7 +123,10 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>> BPE::En
 
     BPE::TOKEN nextEncodedToken{FIRST_TOKEN};
 
-    while (true)
+    BPE::BpeEncodingResultInfo encodingInfo{};
+    encodingInfo.EncodedStringInitialLength = input.size();
+
+    for (;; encodingInfo.EncodingIterationCount++)
     {
         pairCounts.clear();
 
@@ -170,17 +185,19 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>> BPE::En
         ++nextEncodedToken;
     }
 
-    return {bpeTable, encodedString};
+    encodingInfo.EncodedStringLength = encodedString.size();
+
+    return {bpeTable, encodedString, encodingInfo};
 }
 
-std::string BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& tokens)
+std::string BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
 {
     std::string result;
     result.reserve(input.size() * 2);
 
     for (const BPE::TOKEN& token : input)
     {
-        DecodeToken(token, result, tokens);
+        DecodeToken(token, result, bpeTable);
     }
 
     return result;
