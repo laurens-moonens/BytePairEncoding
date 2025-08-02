@@ -205,6 +205,21 @@ std::tuple<std::string, BPE::BpeDecodingResultInfo> BPE::DecodeString(const std:
     return {result, info};
 }
 
+void BPE::DecodeToken(BPE::TOKEN token, std::string& decodedToken, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& encodedTokens)
+{
+    if (token < FIRST_TOKEN)
+    {
+        decodedToken.push_back(token);
+        return;
+    }
+
+    BPE::TOKEN tokenPairIndex{BPE::TOKEN(token - FIRST_TOKEN)};
+    std::pair<BPE::TOKEN, BPE::TOKEN> pair{encodedTokens.at(tokenPairIndex)};
+
+    DecodeToken(pair.first, decodedToken, encodedTokens);
+    DecodeToken(pair.second, decodedToken, encodedTokens);
+}
+
 void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
 {
     for (BPE::TOKEN token{0}; token < bpeTable.size(); ++token)
@@ -232,19 +247,4 @@ void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bp
 
         std::println("|");
     }
-}
-
-void BPE::DecodeToken(BPE::TOKEN token, std::string& decodedToken, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& encodedTokens)
-{
-    if (token < FIRST_TOKEN)
-    {
-        decodedToken.push_back(token);
-        return;
-    }
-
-    BPE::TOKEN tokenPairIndex = token - FIRST_TOKEN;
-    std::pair<BPE::TOKEN, BPE::TOKEN> pair = encodedTokens.at(tokenPairIndex);
-
-    DecodeToken(pair.first, decodedToken, encodedTokens);
-    DecodeToken(pair.second, decodedToken, encodedTokens);
 }
