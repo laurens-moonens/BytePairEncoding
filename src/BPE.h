@@ -1,9 +1,7 @@
-#include <array>
 #include <climits>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -17,7 +15,7 @@ namespace BPE
         NONE = -1,
         Encode,
         Decode,
-        Print
+        Inspect
     };
 
     struct BpeEncodingResultInfo
@@ -25,6 +23,12 @@ namespace BPE
         uint64_t EncodingIterationCount;
         uint64_t EncodedStringInitialLength;
         uint64_t EncodedStringLength;
+    };
+
+    struct BpeDecodingResultInfo
+    {
+        uint64_t EncodedStringLength;
+        uint64_t DecodedStringLength;
     };
 
     template <typename charType>
@@ -37,8 +41,8 @@ namespace BPE
     bool TryReadEncodedTextFromFile(const std::string& inputFilePath, std::basic_string<TOKEN>& encodedString, std::vector<std::pair<TOKEN, TOKEN>>& tokens);
 
     std::tuple<std::basic_string<TOKEN>, std::basic_string<TOKEN>, BpeEncodingResultInfo> EncodeText(const std::string& input);
-    std::string DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens);
-    void PrintTokenTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
+    std::tuple<std::string, BpeDecodingResultInfo> DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens);
+    void PrintBpeTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
     void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
 
     struct PairHash

@@ -19,6 +19,7 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
         std::println("Commands:");
         std::println("\tencode\t Encode the input file using byte pair encoding");
         std::println("\tdecode\t Decode an encoded file using a BPE table");
+        std::println("\tinspect\t Inpsect a BPE table");
         std::println();
         std::println("Options:");
     }
@@ -36,6 +37,7 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
                 std::println("\t-t <file>\t Output file containing the encoded tokens (optional)");
                 std::println();
                 break;
+
             case BPE::SubCommand::Decode:
                 std::println();
                 std::println("Usage: {} decode -b <bpe-input> -t <token-input> -o <output-file>", programName);
@@ -44,6 +46,15 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
                 std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
                 std::println("\t-t <file>\t Input file containing the encoded tokens (REQUIRED)");
                 std::println("\t-o <file>\t Output file containing the decoded text (REQUIRED)");
+                std::println();
+                break;
+
+            case BPE::SubCommand::Inspect:
+                std::println();
+                std::println("Usage: {} inspect -b <bpe-input>", programName);
+                std::println();
+                std::println("Options:");
+                std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
                 std::println();
                 break;
 
@@ -77,6 +88,7 @@ int main(int argc, char* argv[])
 
     if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
     else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
+    else if (subCommandArg == "inspect") subCommand = BPE::SubCommand::Inspect;
     else if (subCommandArg == "-h" || subCommandArg == "--help")
     {
         PrintUsage(programName);
@@ -152,7 +164,7 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            auto [bpeTable, encodedString, info] = BPE::EncodeText(inputData.value());
+            auto [bpeTable, encodedString, info]{BPE::EncodeText(inputData.value())};
 
             std::expected<void, std::string> writeBpeTableResult = BPE::TryWriteBasicStringToFile(bpeTable, bpeFilePath);
             if (!writeBpeTableResult.has_value())
@@ -251,7 +263,7 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            std::string decodedString{BPE::DecodeString(tokens.value(), bpeTable.value())};
+            auto [decodedString, info]{BPE::DecodeString(tokens.value(), bpeTable.value())};
 
             std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, outputFilePath)};
             if (!writeStringResult.has_value())
@@ -259,8 +271,51 @@ int main(int argc, char* argv[])
                 std::println(stderr, "{}", writeStringResult.error());
                 return 1;
             }
+
+            std::println("Successfully decoded {} tokens to {} tokens.", info.EncodedStringLength, info.DecodedStringLength);
+
+            break;
         }
-        break;
+        case BPE::SubCommand::Inspect:
+        {
+            std::filesystem::path bpeFilePath{};
+
+            while (args.size() > 0)
+            {
+                std::string_view arg{args.front()};
+                args.pop();
+
+                if (arg == "-b")
+                {
+                    bpeFilePath = args.front();
+                    args.pop();
+                }
+                else
+                {
+                    std::println("ERROR: Unknown option '{}'", arg);
+                    PrintUsage(programName, subCommand);
+                    return 1;
+                }
+            }
+
+            if (bpeFilePath.empty())
+            {
+                std::println(stderr, "ERROR: Missing option '-b <file>'");
+                PrintUsage(programName, subCommand);
+                return 1;
+            }
+
+            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(bpeFilePath)};
+            if (!bpeTable.has_value())
+            {
+                std::println(stderr, "{}", bpeTable.error());
+                return 1;
+            }
+
+            BPE::PrintBpeTable(bpeTable.value());
+
+            break;
+        }
         case BPE::SubCommand::NONE:
         default:
             throw std::runtime_error("Subcommand not implemented");

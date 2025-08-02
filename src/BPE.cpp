@@ -130,7 +130,7 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>, BPE::Bp
     {
         pairCounts.clear();
 
-        for (size_t i = 0; i < encodedString.size() - 1; ++i)
+        for (size_t i{0}; i < encodedString.size() - 1; ++i)
         {
             std::pair<BPE::TOKEN, BPE::TOKEN> pair{encodedString[i], encodedString[i + 1]};
             pairCounts[pair] += 1;
@@ -157,7 +157,7 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>, BPE::Bp
         encodedStringCopy = encodedString;
         encodedString.clear();
 
-        for (size_t i = 0; i < encodedStringCopy.size(); ++i)
+        for (size_t i{0}; i < encodedStringCopy.size(); ++i)
         {
             if (i == encodedStringSize - 1)
             {
@@ -190,7 +190,7 @@ std::tuple<std::basic_string<BPE::TOKEN>, std::basic_string<BPE::TOKEN>, BPE::Bp
     return {bpeTable, encodedString, encodingInfo};
 }
 
-std::string BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
+std::tuple<std::string, BPE::BpeDecodingResultInfo> BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
 {
     std::string result;
     result.reserve(input.size() * 2);
@@ -200,35 +200,37 @@ std::string BPE::DecodeString(const std::basic_string<BPE::TOKEN>& input, const 
         DecodeToken(token, result, bpeTable);
     }
 
-    return result;
+    BpeDecodingResultInfo info{ input.size(), result.size()};
+
+    return {result, info};
 }
 
-void BPE::PrintTokenTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& encodedTokens)
+void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
 {
-    for (BPE::TOKEN token = 0; token < encodedTokens.size(); ++token)
+    for (BPE::TOKEN token{0}; token < bpeTable.size(); ++token)
     {
-        std::pair<BPE::TOKEN, BPE::TOKEN> tokenPair = encodedTokens.at(token);
+        std::pair<BPE::TOKEN, BPE::TOKEN> tokenPair{bpeTable.at(token)};
 
         std::string decriptedToken;
 
-        DecodeToken(tokenPair.first, decriptedToken, encodedTokens);
-        DecodeToken(tokenPair.second, decriptedToken, encodedTokens);
+        DecodeToken(tokenPair.first, decriptedToken, bpeTable);
+        DecodeToken(tokenPair.second, decriptedToken, bpeTable);
 
-        std::cout << std::dec << token + FIRST_TOKEN << " = |";
+        std::print("{} = |", token + FIRST_TOKEN);
 
-        for (size_t i = 0; i < decriptedToken.size(); ++i)
+        for (size_t i{0}; i < decriptedToken.size(); ++i)
         {
             if (std::isprint(decriptedToken[i]))
             {
-                std::cout << decriptedToken[i];
+                std::print("{}", decriptedToken[i]);
             }
             else
             {
-                std::cout << "\\x" << std::setfill('0') << std::setw(2) << std::hex << (uint)decriptedToken[i];
+                std::print("\\{:#04X}", decriptedToken[i]);
             }
         }
 
-        std::cout << '|' << std::endl;
+        std::println("|");
     }
 }
 
