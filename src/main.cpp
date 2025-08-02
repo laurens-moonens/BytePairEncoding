@@ -20,6 +20,7 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
         std::println("\tencode\t Encode the input file using byte pair encoding");
         std::println("\tdecode\t Decode an encoded file using a BPE table");
         std::println("\tinspect\t Inpsect a BPE table");
+        std::println("\tgenerate\t Generate new text (gibberish) based on an BPE table");
         std::println();
         std::println("Options:");
     }
@@ -58,6 +59,17 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
                 std::println();
                 break;
 
+            case BPE::SubCommand::Generate:
+                std::println();
+                std::println("Usage: {} generate -b <bpe-input> -o <output-file> -l <token-length>", programName);
+                std::println();
+                std::println("Options:");
+                std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
+                std::println("\t-o <file>\t Output file to write the generate text to (optional)");
+                std::println("\t-c <value>\t Number of tokens to generate (optional, default: 10)");
+                std::println();
+                break;
+
             default:
                 throw std::runtime_error("Subcommand not implemented");
                 break;
@@ -89,6 +101,7 @@ int main(int argc, char* argv[])
     if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
     else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
     else if (subCommandArg == "inspect") subCommand = BPE::SubCommand::Inspect;
+    else if (subCommandArg == "generate") subCommand = BPE::SubCommand::Generate;
     else if (subCommandArg == "-h" || subCommandArg == "--help")
     {
         PrintUsage(programName);
@@ -316,78 +329,87 @@ int main(int argc, char* argv[])
 
             break;
         }
+        case BPE::SubCommand::Generate:
+        {
+            std::filesystem::path bpeFilePath{};
+            std::filesystem::path outputFilePath{};
+            int tokenCount{10};
+
+            while (args.size() > 0)
+            {
+                std::string_view arg{args.front()};
+                args.pop();
+
+                if (arg == "-o")
+                {
+                    outputFilePath = args.front();
+                    args.pop();
+                }
+                else if (arg == "-b")
+                {
+                    bpeFilePath = args.front();
+                    args.pop();
+                }
+                else if (arg == "-c")
+                {
+                    try
+                    {
+                        tokenCount = std::stoi(args.front().data(), nullptr, 0);
+                    }
+                    catch (std::invalid_argument const& ex)
+                    {
+                        std::println("ERROR: Unable to parse {} to int", args.front());
+                        return 1;
+                    }
+                    catch (std::out_of_range const& ex)
+                    {
+                        std::println("ERROR: Token count was out of range");
+                        return 1;
+                    }
+
+                    args.pop();
+                }
+                else
+                {
+                    std::println("ERROR: Unknown option '{}'", arg);
+                    PrintUsage(programName, subCommand);
+                    return 1;
+                }
+            }
+
+            if (tokenCount <= 0)
+            {
+                std::println("ERROR: Token count should be greater than zero.");
+                return 1;
+            }
+
+            if (bpeFilePath.empty())
+            {
+                std::println(stderr, "ERROR: Missing option '-b <file>'");
+                PrintUsage(programName, subCommand);
+                return 1;
+            }
+
+            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(bpeFilePath)};
+            if (!bpeTable.has_value())
+            {
+                std::println(stderr, "{}", bpeTable.error());
+                return 1;
+            }
+
+            std::basic_string<BPE::TOKEN> generatedTokenString{BPE::GenerateTokenString(bpeTable.value(), tokenCount)};
+
+            auto [decodedString, _]{BPE::DecodeString(generatedTokenString, bpeTable.value())};
+
+            std::println("{}", decodedString);
+
+            break;
+        }
         case BPE::SubCommand::NONE:
         default:
             throw std::runtime_error("Subcommand not implemented");
             break;
     }
-
-    return 0;
-
-    /*
-    for (int a = 0; a < argc; ++a)
-    {
-        char* arg = argv[a];
-
-        if (strcmp(arg, "-e") == 0)
-        {
-            assert(a + 2 < argc);
-            std::string inputFile = argv[a + 1];
-            std::string outputFile = argv[a + 2];
-            a += 2;
-
-            std::string input;
-            //if (!bpe.TryReadTextFromFile(inputFile, input))
-            //{
-            //    std::print(stderr, "ERROR: Failed to read text from file {}", inputFile);
-            //    continue;
-            //}
-
-            //std::basic_string<BPE::TOKEN> encodedString = bpe.EncodeText(input);
-            //bpe.TryWriteEncodedTextToFile(encodedString, outputFile);
-        }
-        else if (strcmp(arg, "-d") == 0)
-        {
-            assert(a + 2 < argc);
-            std::string inputFile = argv[a + 1];
-            std::string outputFile = argv[a + 2];
-            a += 2;
-
-            std::basic_string<BPE::TOKEN> encodedInput;
-            std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>> tokens;
-
-            if (bpe.TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
-            {
-                std::cout << "ERROR: Failed to read raw encoded input from file." << std::endl;
-                return -1;
-            }
-
-            std::string decodedText = bpe.DecodeString(encodedInput, tokens);
-
-            if (bpe.TryWriteTextToFile(decodedText, outputFile) == false)
-            {
-                std::cout << "ERROR: Failed to write decoded text to file." << std::endl;
-                return -1;
-            }
-        }
-        else if (strcmp(arg, "-p") == 0)
-        {
-            assert(a + 1 < argc);
-            std::string inputFile = argv[a + 1];
-            ++a;
-
-            std::basic_string<BPE::TOKEN> encodedInput;
-            std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>> tokens;
-
-            if (bpe.TryReadEncodedTextFromFile(inputFile, encodedInput, tokens) == false)
-            {
-                std::cout << "ERROR: Failed to read raw encoded input from file." << std::endl;
-                return -1;
-            }
-
-            bpe.PrintTokenTable(tokens);
-        }
-    }*/
 
     return 0;
 }

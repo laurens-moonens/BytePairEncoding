@@ -15,7 +15,8 @@ namespace BPE
         NONE = -1,
         Encode,
         Decode,
-        Inspect
+        Inspect,
+        Generate
     };
 
     struct BpeEncodingResultInfo
@@ -42,8 +43,10 @@ namespace BPE
 
     std::tuple<std::basic_string<TOKEN>, std::basic_string<TOKEN>, BpeEncodingResultInfo> EncodeText(const std::string& input);
     std::tuple<std::string, BpeDecodingResultInfo> DecodeString(const std::basic_string<TOKEN>& input, const std::vector<std::pair<TOKEN, TOKEN>>& tokens);
-    void PrintBpeTable(const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
-    void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& encodedTokens);
+    void PrintBpeTable(const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable);
+    void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable);
+
+    std::basic_string<TOKEN> GenerateTokenString(const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable, uint tokenCount);
 
     struct PairHash
     {

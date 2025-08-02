@@ -1,6 +1,8 @@
 #include "BPE.h"
 
 #include <cassert>
+#include <cstdint>
+#include <cstdlib>
 #include <expected>
 #include <format>
 #include <fstream>
@@ -200,12 +202,12 @@ std::tuple<std::string, BPE::BpeDecodingResultInfo> BPE::DecodeString(const std:
         DecodeToken(token, result, bpeTable);
     }
 
-    BpeDecodingResultInfo info{ input.size(), result.size()};
+    BpeDecodingResultInfo info{input.size(), result.size()};
 
     return {result, info};
 }
 
-void BPE::DecodeToken(BPE::TOKEN token, std::string& decodedToken, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& encodedTokens)
+void BPE::DecodeToken(BPE::TOKEN token, std::string& decodedToken, const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
 {
     if (token < FIRST_TOKEN)
     {
@@ -214,10 +216,10 @@ void BPE::DecodeToken(BPE::TOKEN token, std::string& decodedToken, const std::ve
     }
 
     BPE::TOKEN tokenPairIndex{BPE::TOKEN(token - FIRST_TOKEN)};
-    std::pair<BPE::TOKEN, BPE::TOKEN> pair{encodedTokens.at(tokenPairIndex)};
+    std::pair<BPE::TOKEN, BPE::TOKEN> pair{bpeTable.at(tokenPairIndex)};
 
-    DecodeToken(pair.first, decodedToken, encodedTokens);
-    DecodeToken(pair.second, decodedToken, encodedTokens);
+    DecodeToken(pair.first, decodedToken, bpeTable);
+    DecodeToken(pair.second, decodedToken, bpeTable);
 }
 
 void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable)
@@ -247,4 +249,75 @@ void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bp
 
         std::println("|");
     }
+}
+
+std::basic_string<BPE::TOKEN> BPE::GenerateTokenString(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable, uint tokenCount)
+{
+    srand(time(0));
+    std::basic_string<BPE::TOKEN> result{};
+
+    auto asd = bpeTable;
+
+    BPE::TOKEN currentToken{bpeTable.at(rand() % (int)bpeTable.size()).second};
+    result.push_back(currentToken);
+
+    for (uint i{1}; i < tokenCount; ++i)
+    {
+        std::string decodedString1{};
+        BPE::DecodeToken(currentToken, decodedString1, bpeTable);
+        std::println("TOKEN {}: |{}|", i, decodedString1);
+
+        std::vector<BPE::TOKEN> possibleNextTokens{};
+
+        while (possibleNextTokens.size() == 0)
+        {
+            for (std::pair<BPE::TOKEN, BPE::TOKEN> tokenPair : bpeTable)
+            {
+                if (tokenPair.first == currentToken)
+                {
+                    possibleNextTokens.push_back(tokenPair.second);
+                }
+            }
+
+            if (possibleNextTokens.size() == 0)
+            {
+                if (currentToken < FIRST_TOKEN)
+                {
+                    std::println("GAVE UP: Reached terminal token {}", (char)currentToken);
+                    break;
+                }
+
+                std::string decodedString2{};
+                BPE::DecodeToken(currentToken, decodedString2, bpeTable);
+                std::println("Could not find next token after |{}|", decodedString2);
+                currentToken = bpeTable.at(currentToken - FIRST_TOKEN).second;
+
+                decodedString2 = std::string{};
+                BPE::DecodeToken(currentToken, decodedString2, bpeTable);
+                std::println("Checking token |{}| instead (value {})", decodedString2, (uint16_t)currentToken);
+            }
+        }
+
+        if (possibleNextTokens.size() == 0)
+        {
+            std::string decodedString3{};
+            BPE::DecodeToken(result.at(result.size() - 1), decodedString3, bpeTable);
+            std::println("GAVE UP: Could not find next token after |{}|", decodedString3);
+            return result;
+        }
+
+        std::println("Found {} possible next tokens", possibleNextTokens.size());
+        for (size_t j{0}; j < possibleNextTokens.size(); ++j)
+        {
+            std::string decodedString4{};
+            BPE::DecodeToken(possibleNextTokens.at(j), decodedString4, bpeTable);
+            std::println("|{}| ({})", decodedString4, (uint16_t)possibleNextTokens.at(j));
+        }
+
+        currentToken = possibleNextTokens.at(rand() % possibleNextTokens.size());
+        result.push_back(currentToken);
+        std::println();
+    }
+
+    return result;
 }
