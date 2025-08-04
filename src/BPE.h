@@ -9,6 +9,7 @@ namespace BPE
 {
     typedef char16_t TOKEN;
     const TOKEN FIRST_TOKEN{CHAR_MAX + 1};
+    const uint GENERATION_DEFAULT_TOKEN_COUNT = 100;
 
     enum class SubCommand
     {
@@ -17,6 +18,13 @@ namespace BPE
         Decode,
         Inspect,
         Generate
+    };
+
+    enum class GenerationEndCause
+    {
+        CountReached,
+        TerminalTokenReached,
+        NoNextTokenFound
     };
 
     struct BpeEncodingResultInfo
@@ -30,6 +38,13 @@ namespace BPE
     {
         uint64_t EncodedStringLength;
         uint64_t DecodedStringLength;
+    };
+
+    struct BpeGenerationResultInfo
+    {
+        uint TokenCount;
+        GenerationEndCause EndCause;
+        TOKEN LastToken;
     };
 
     template <typename charType>
@@ -46,7 +61,7 @@ namespace BPE
     void PrintBpeTable(const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable);
     void DecodeToken(TOKEN token, std::string& decodedToken, const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable);
 
-    std::basic_string<TOKEN> GenerateTokenString(const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable, uint tokenCount);
+    std::tuple<std::basic_string<TOKEN>, BpeGenerationResultInfo> GenerateTokenString(const std::vector<std::pair<TOKEN, TOKEN>>& bpeTable, uint tokenCount);
 
     struct PairHash
     {

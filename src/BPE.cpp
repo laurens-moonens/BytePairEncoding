@@ -251,22 +251,19 @@ void BPE::PrintBpeTable(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bp
     }
 }
 
-std::basic_string<BPE::TOKEN> BPE::GenerateTokenString(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable, uint tokenCount)
+std::tuple<std::basic_string<BPE::TOKEN>, BPE::BpeGenerationResultInfo> BPE::GenerateTokenString(const std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>& bpeTable, uint tokenCount)
 {
     srand(time(0));
-    std::basic_string<BPE::TOKEN> result{};
 
-    auto asd = bpeTable;
+    std::basic_string<BPE::TOKEN> result{};
+    BPE::BpeGenerationResultInfo info{};
+    info.EndCause = BPE::GenerationEndCause::CountReached;
 
     BPE::TOKEN currentToken{bpeTable.at(rand() % (int)bpeTable.size()).second};
     result.push_back(currentToken);
 
     for (uint i{1}; i < tokenCount; ++i)
     {
-        std::string decodedString1{};
-        BPE::DecodeToken(currentToken, decodedString1, bpeTable);
-        std::println("TOKEN {}: |{}|", i, decodedString1);
-
         std::vector<BPE::TOKEN> possibleNextTokens{};
 
         while (possibleNextTokens.size() == 0)
@@ -281,43 +278,24 @@ std::basic_string<BPE::TOKEN> BPE::GenerateTokenString(const std::vector<std::pa
 
             if (possibleNextTokens.size() == 0)
             {
-                if (currentToken < FIRST_TOKEN)
-                {
-                    std::println("GAVE UP: Reached terminal token {}", (char)currentToken);
-                    break;
-                }
+                if (currentToken < FIRST_TOKEN) break;
 
-                std::string decodedString2{};
-                BPE::DecodeToken(currentToken, decodedString2, bpeTable);
-                std::println("Could not find next token after |{}|", decodedString2);
                 currentToken = bpeTable.at(currentToken - FIRST_TOKEN).second;
-
-                decodedString2 = std::string{};
-                BPE::DecodeToken(currentToken, decodedString2, bpeTable);
-                std::println("Checking token |{}| instead (value {})", decodedString2, (uint16_t)currentToken);
             }
         }
 
         if (possibleNextTokens.size() == 0)
         {
-            std::string decodedString3{};
-            BPE::DecodeToken(result.at(result.size() - 1), decodedString3, bpeTable);
-            std::println("GAVE UP: Could not find next token after |{}|", decodedString3);
-            return result;
-        }
-
-        std::println("Found {} possible next tokens", possibleNextTokens.size());
-        for (size_t j{0}; j < possibleNextTokens.size(); ++j)
-        {
-            std::string decodedString4{};
-            BPE::DecodeToken(possibleNextTokens.at(j), decodedString4, bpeTable);
-            std::println("|{}| ({})", decodedString4, (uint16_t)possibleNextTokens.at(j));
+            info.EndCause = info.LastToken < BPE::FIRST_TOKEN ? BPE::GenerationEndCause::TerminalTokenReached : BPE::GenerationEndCause::NoNextTokenFound;
+            break;
         }
 
         currentToken = possibleNextTokens.at(rand() % possibleNextTokens.size());
+        info.LastToken = currentToken;
         result.push_back(currentToken);
-        std::println();
     }
 
-    return result;
+    info.TokenCount = result.size();
+
+    return {result, info};
 }

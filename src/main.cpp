@@ -66,7 +66,7 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
                 std::println("Options:");
                 std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
                 std::println("\t-o <file>\t Output file to write the generate text to (optional)");
-                std::println("\t-c <value>\t Number of tokens to generate (optional, default: 10)");
+                std::println("\t-c <value>\t Number of tokens to generate (optional, default: {})", BPE::GENERATION_DEFAULT_TOKEN_COUNT);
                 std::println();
                 break;
 
@@ -333,7 +333,7 @@ int main(int argc, char* argv[])
         {
             std::filesystem::path bpeFilePath{};
             std::filesystem::path outputFilePath{};
-            int tokenCount{10};
+            int tokenCount{BPE::GENERATION_DEFAULT_TOKEN_COUNT};
 
             while (args.size() > 0)
             {
@@ -397,11 +397,42 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            std::basic_string<BPE::TOKEN> generatedTokenString{BPE::GenerateTokenString(bpeTable.value(), tokenCount)};
-
+            auto [generatedTokenString, info]{BPE::GenerateTokenString(bpeTable.value(), tokenCount)};
             auto [decodedString, _]{BPE::DecodeString(generatedTokenString, bpeTable.value())};
 
-            std::println("{}", decodedString);
+            std::string lastTokenDecoded{};
+            BPE::DecodeToken(info.LastToken, lastTokenDecoded, bpeTable.value());
+
+            switch (info.EndCause)
+            {
+                case BPE::GenerationEndCause::CountReached:
+                    std::println("Successfully generated {} tokens.", info.TokenCount);
+                    break;
+                case BPE::GenerationEndCause::NoNextTokenFound:
+                    std::println("Generated {} tokens. No next token was found after token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
+                    break;
+                case BPE::GenerationEndCause::TerminalTokenReached:
+                    std::println("Generated {} tokens. Reached terminal token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
+                    break;
+            }
+
+            if (outputFilePath.empty())
+            {
+                std::println("{}\n", decodedString);
+            }
+            else
+            {
+                std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, outputFilePath)};
+                if (!writeStringResult.has_value())
+                {
+                    std::println(stderr, "{}", writeStringResult.error());
+                    return 1;
+                }
+                else
+                {
+                    std::println("-> written to \"{}\"", outputFilePath.c_str());
+                }
+            }
 
             break;
         }
