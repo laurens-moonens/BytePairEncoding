@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "BPE.h"
+#include "Flags.h"
 
 void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::SubCommand::NONE)
 {
@@ -87,6 +88,10 @@ int main(int argc, char* argv[])
     std::string_view programName{argv[0]};
 
     std::queue<std::string_view> args{argv + 1, argv + argc};
+
+    //Flags<BPE::SubCommand> flags{};
+    //flags<std::string> encodeInputFlag{"-i", "encode", true};
+    //    flags.AddString("-i", "", BPE::SubCommand::Encode, true);
 
     if (args.size() <= 0)
     {

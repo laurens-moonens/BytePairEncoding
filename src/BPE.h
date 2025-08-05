@@ -8,8 +8,8 @@
 namespace BPE
 {
     typedef char16_t TOKEN;
-    const TOKEN FIRST_TOKEN{CHAR_MAX + 1};
-    const uint GENERATION_DEFAULT_TOKEN_COUNT = 100;
+    constexpr TOKEN FIRST_TOKEN{CHAR_MAX + 1};
+    constexpr int GENERATION_DEFAULT_TOKEN_COUNT{100};
 
     enum class SubCommand
     {
