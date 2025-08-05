@@ -91,7 +91,27 @@ int main(int argc, char* argv[])
 
     //Flags<BPE::SubCommand> flags{};
     //flags<std::string> encodeInputFlag{"-i", "encode", true};
-    //    flags.AddString("-i", "", BPE::SubCommand::Encode, true);
+    Flags<BPE::SubCommand>::FlagInfo flagInfo
+    {
+        .flag = "-i",
+        .flagParameterName = "input",
+        .description = "input file path",
+        .subCommand = BPE::SubCommand::Encode,
+        .mandatory = true
+    };
+
+    Flags<BPE::SubCommand>::FlagData<float>::AddFlag({});
+    //Flags<BPE::SubCommand>::FlagData<std::string>::AddFlag(flagInfo);
+
+    //const std::string* inputFilePath{flags.GetString(flagInfo)};
+    //if(inputFilePath == nullptr)
+    //{
+    //    std::println("null");
+    //}
+    //else
+    //{
+    //    std::println("{}", *inputFilePath);
+    //}
 
     if (args.size() <= 0)
     {
