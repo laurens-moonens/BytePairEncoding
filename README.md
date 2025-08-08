@@ -3,7 +3,7 @@
 This cli tool allows text to be encoded, decoded and inspected using byte pair encoding.
 After encoding some text, the tool can also generate some new text (often gibberish) based on the original text.
 
-E.g. Here is some generated text, based on the Bee Movie script:<br>
+E.g. Here is some generated text, based on the [Bee Movie script](https://gist.github.com/ElliotGluck/64b0b814293c09999f765e265aaa2ba1):<br>
 "I will be able live are you? A lot to floll the honey production this this is this?"
 
 -------------------------------------------------------------------------------
