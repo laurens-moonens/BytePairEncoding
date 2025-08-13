@@ -1,6 +1,6 @@
 build/
-*.txt
 *.bpe
+*.tkn
 
 # Prerequisites
 *.d
