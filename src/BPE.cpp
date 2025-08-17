@@ -11,8 +11,10 @@
 #include <print>
 #include <unordered_map>
 
-template std::expected<void, std::string> BPE::TryWriteBasicStringToFile<std::string::value_type>(const std::basic_string<std::string::value_type>& textToWrite, const std::filesystem::path& outputFilePath);
-template std::expected<void, std::string> BPE::TryWriteBasicStringToFile<BPE::TOKEN>(const std::basic_string<BPE::TOKEN>& textToWrite, const std::filesystem::path& outputFilePath);
+template <>
+std::expected<void, std::string> BPE::TryWriteBasicStringToFile<std::string::value_type>(const std::basic_string<std::string::value_type>& textToWrite, const std::filesystem::path& outputFilePath);
+template <>
+std::expected<void, std::string> BPE::TryWriteBasicStringToFile<BPE::TOKEN>(const std::basic_string<BPE::TOKEN>& textToWrite, const std::filesystem::path& outputFilePath);
 template <typename charType>
 std::expected<void, std::string> BPE::TryWriteBasicStringToFile(const std::basic_string<charType>& dataToWrite, const std::filesystem::path& outputFilePath)
 {

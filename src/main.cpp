@@ -89,22 +89,28 @@ int main(int argc, char* argv[])
 
     std::queue<std::string_view> args{argv + 1, argv + argc};
 
-    //Flags<BPE::SubCommand> flags{};
-    //flags<std::string> encodeInputFlag{"-i", "encode", true};
-    Flags<BPE::SubCommand>::FlagInfo flagInfo
-    {
-        .flag = "-i",
-        .flagParameterName = "input",
-        .description = "input file path",
-        .subCommand = BPE::SubCommand::Encode,
-        .mandatory = true
-    };
+    using Flags = Flags<BPE::SubCommand>;
 
-    Flags<BPE::SubCommand>::FlagData<float>::AddFlag({});
-    //Flags<BPE::SubCommand>::FlagData<std::string>::AddFlag(flagInfo);
+    //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
+    const std::string* flagData{Flags::AddFlag<std::string>("-i", "DEFAULT TESTERY ASCDOiNACEOIANCA")};
 
-    //const std::string* inputFilePath{flags.GetString(flagInfo)};
-    //if(inputFilePath == nullptr)
+    Flags::ParseFlags("-i", "NEW FLAG");
+
+    std::println("{}", *flagData);
+    //Flags::FlagInfo<std::string> flagInfo{
+    //    .flag = "-i",
+    //    .flagParameterName = "input",
+    //    .description = "input file path",
+    //    .mandatory = true,
+    //    .defaultValue = "default testersy"};
+
+    //const std::string* inputFilePath{Flags::AddFlag<std::string>(flagInfo)};
+
+    //std::println("{}", *inputFilePath);
+
+    //Flags::ParseFlags(argc, argv);
+
+    //if (inputFilePath == NULL)
     //{
     //    std::println("null");
     //}
@@ -112,6 +118,10 @@ int main(int argc, char* argv[])
     //{
     //    std::println("{}", *inputFilePath);
     //}
+
+    //std::println("{}", *f);
+
+    return 0;
 
     if (args.size() <= 0)
     {

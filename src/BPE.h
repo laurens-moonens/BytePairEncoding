@@ -1,3 +1,5 @@
+#pragma once
+
 #include <climits>
 #include <cstdint>
 #include <expected>
@@ -11,7 +13,15 @@ namespace BPE
     constexpr TOKEN FIRST_TOKEN{CHAR_MAX + 1};
     constexpr int GENERATION_DEFAULT_TOKEN_COUNT{100};
 
-    enum class SubCommand
+    enum class SomeOtherCommands : int
+    {
+        Encode,
+        Decode,
+        Inspect,
+        Generate
+    };
+
+    enum class SubCommand : int
     {
         NONE = -1,
         Encode,
