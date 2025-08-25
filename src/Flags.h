@@ -3,56 +3,57 @@
 #include <array>
 #include <expected>
 #include <map>
+#include <print>
 #include <string>
 #include <type_traits>
+
+class BaseFlagInfo
+{
+public:
+    virtual ~BaseFlagInfo() = default;
+
+    virtual void SetData(std::string_view argv) = 0;
+
+    std::string flag;
+    std::string parameterName;
+    bool mandatory;
+};
+
+template <typename T>
+class FlagInfo : public BaseFlagInfo
+{
+public:
+    T data;
+    void SetData(std::string_view argv);
+};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 class Flags
 {
 public:
-    static void SetSubCommandMapping(std::map<std::string_view, SubCommand> mapping);
+    static void SetSubCommandMapping(const std::map<std::string_view, SubCommand>& mapping);
 
     template <typename T, SubCommand S = (SubCommand)-1>
-    static const T* AddFlag(std::string flag, T defaultValue);
+    static const T* AddFlag(const std::string& flag, const std::string& parameterName, bool mandatory = true, const T& defaultValue = T{});
 
-    static std::expected<void, std::string> ParseFlags(const int argc, char* const argv[]);
-    static void GetUsage();
+    template <SubCommand S = (SubCommand)-1>
+    static const bool* AddFlag(const std::string& flag, bool mandatory = true);
+
+    static std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
+    static std::string GetUsage();
 
 private:
-    class BaseFlagInfo
-    {
-    public:
-        virtual ~BaseFlagInfo() = default;
-
-        virtual void SetData(std::string_view argv) = 0;
-
-        std::string flag;
-        SubCommand subCommand;
-    };
-
-    template <typename T>
-    class FlagInfo : public BaseFlagInfo
-    {
-    public:
-        T data;
-
-        void SetData(std::string_view argv) override
-        {
-            data = argv;
-        }
-    };
-
     template <typename T, SubCommand S>
-    class FlagData
+    struct FlagData
     {
-    public:
         static size_t dataSize;
         static std::array<FlagInfo<T>, 256> flagData;
     };
 
-    static std::map<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag;
-    static std::map<std::string_view, SubCommand> subCommandMapping;
+    static std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag;
+    static std::map<std::string_view, SubCommand> stringToSubCommand;
+    static std::map<SubCommand, std::string_view> subCommandToString;
 };
 
 #include "Flags.tpp"

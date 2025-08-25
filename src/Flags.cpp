@@ -1,18 +1,32 @@
 #include "Flags.h"
 
-//template <typename SubCommand>
-//    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-//template <SubCommand S>
-//void Flags<SubCommand>::FlagInfo<std::string, S>::SetData(std::string argv)
+//template <>
+//std::string FlagParser<std::string>::ParseFlag(std::string_view argv)
 //{
-//    data = argv;
+//    return std::string{argv};
+//}
+//
+//template <>
+//int FlagParser<int>::ParseFlag(std::string_view argv)
+//{
 //}
 
-//    template <>
-//    class FlagInfo<std::string>
-//    {
-//        void SetData(std::string argv)
-//        {
-//            data = argv;
-//        }
-//    };
+template <>
+void FlagInfo<std::string>::SetData(std::string_view argv)
+{
+    data = std::string{argv};
+}
+
+template <>
+void FlagInfo<int>::SetData(std::string_view argv)
+{
+    data = std::stoi(std::string{argv});
+}
+
+template <>
+void FlagInfo<bool>::SetData(std::string_view argv)
+{
+    (void)argv;
+    // TODO:
+    data = false;
+}
