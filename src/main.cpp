@@ -90,13 +90,25 @@ int main(int argc, char* argv[])
     std::queue<std::string_view> args{argv + 1, argv + argc};
 
     using Flags = Flags<BPE::SubCommand>;
+    Flags::SetSubCommandMapping(
+        {
+            {"encode", BPE::SubCommand::Encode},
+            {"decode", BPE::SubCommand::Decode},
+            {"inspect", BPE::SubCommand::Inspect},
+            {"generate", BPE::SubCommand::Generate},
+        });
 
     //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
-    const std::string* flagData{Flags::AddFlag<std::string>("-i", "DEFAULT TESTERY ASCDOiNACEOIANCA")};
+    const std::string* testFlag{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-i", "DEFAULT TESTERY ASCDOiNACEOIANCA")};
 
-    Flags::ParseFlags("-i", "NEW FLAG");
+    std::expected<void, std::string> parseFlagsResult{Flags::ParseFlags(argc, argv)};
 
-    std::println("{}", *flagData);
+    if (!parseFlagsResult.has_value())
+    {
+        std::println(stderr, "{}", parseFlagsResult.error());
+    }
+
+    std::println("{}", *testFlag);
     //Flags::FlagInfo<std::string> flagInfo{
     //    .flag = "-i",
     //    .flagParameterName = "input",
@@ -185,7 +197,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    std::println("ERROR: Unknown option '{}'", arg);
+                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
                     PrintUsage(programName, subCommand);
                     return 1;
                 }
@@ -270,7 +282,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    std::println("ERROR: Unknown option '{}'", arg);
+                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
                     PrintUsage(programName, subCommand);
                     return 1;
                 }
@@ -340,7 +352,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    std::println("ERROR: Unknown option '{}'", arg);
+                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
                     PrintUsage(programName, subCommand);
                     return 1;
                 }
@@ -393,12 +405,12 @@ int main(int argc, char* argv[])
                     }
                     catch (std::invalid_argument const& ex)
                     {
-                        std::println("ERROR: Unable to parse {} to int", args.front());
+                        std::println(stderr, "ERROR: Unable to parse {} to int", args.front());
                         return 1;
                     }
                     catch (std::out_of_range const& ex)
                     {
-                        std::println("ERROR: Token count was out of range");
+                        std::println(stderr, "ERROR: Token count was out of range");
                         return 1;
                     }
 
@@ -406,7 +418,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                    std::println("ERROR: Unknown option '{}'", arg);
+                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
                     PrintUsage(programName, subCommand);
                     return 1;
                 }
@@ -414,7 +426,7 @@ int main(int argc, char* argv[])
 
             if (tokenCount <= 0)
             {
-                std::println("ERROR: Token count should be greater than zero.");
+                std::println(stderr, "ERROR: Token count should be greater than zero.");
                 return 1;
             }
 

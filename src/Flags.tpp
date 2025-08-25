@@ -1,6 +1,6 @@
 #pragma once
 
-#include <exception>
+#include <print>
 #include <string>
 
 #include "Flags.h"
@@ -17,7 +17,77 @@ std::array<typename Flags<SubCommand>::template FlagInfo<T>, 256> Flags<SubComma
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<std::string, typename Flags<SubCommand>::BaseFlagInfo*> Flags<SubCommand>::flagDataPerFlag{};
+std::map<std::pair<SubCommand, std::string_view>, typename Flags<SubCommand>::BaseFlagInfo*> Flags<SubCommand>::flagInfoPerSubCommandAndFlag{};
+
+template <typename SubCommand>
+    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+std::map<std::string_view, SubCommand> Flags<SubCommand>::subCommandMapping{};
+
+template <typename SubCommand>
+    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+void Flags<SubCommand>::SetSubCommandMapping(std::map<std::string_view, SubCommand> mapping)
+{
+    Flags<SubCommand>::subCommandMapping = mapping;
+}
+
+template <typename SubCommand>
+    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+template <typename T, SubCommand S>
+const T* Flags<SubCommand>::AddFlag(std::string flag, T defaultValue)
+{
+    FlagInfo<T> flagInfo{};
+    flagInfo.flag = flag;
+    flagInfo.subCommand = S;
+    flagInfo.data = defaultValue;
+
+    FlagData<T, S>::flagData[FlagData<T, S>::dataSize] = flagInfo;
+    size_t index = FlagData<T, S>::dataSize;
+    FlagData<T, S>::dataSize++;
+
+    flagInfoPerSubCommandAndFlag[{S, flag}] = &FlagData<T, S>::flagData[index];
+    return &FlagData<T, S>::flagData[index].data;
+}
+
+template <typename SubCommand>
+    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+std::expected<void, std::string> Flags<SubCommand>::ParseFlags(const int argc, char* const argv[])
+{
+    std::println("Program name: {}", argv[0]);
+
+    SubCommand subCommand{(SubCommand)-1};
+
+    if (argc > 1)
+    {
+        std::string_view subCommandString{argv[1]};
+        if (Flags<SubCommand>::subCommandMapping.contains(subCommandString))
+        {
+            subCommand = Flags<SubCommand>::subCommandMapping.at(subCommandString);
+        }
+    }
+
+    for (int i{2}; i < argc; ++i)
+    {
+        std::string_view arg{argv[i]};
+        if (!flagInfoPerSubCommandAndFlag.contains({subCommand, arg}))
+        {
+            return std::unexpected{std::format("ERROR: Unknown option {} for subcommand {}", arg, (int)subCommand)};
+        }
+
+        ++i;
+
+        if (i >= argc)
+        {
+            return std::unexpected{std::format("ERROR: I need an argument after option {}", arg)};
+        }
+
+        std::string_view optionArg{argv[i]};
+
+        BaseFlagInfo* baseFlagInfo{flagInfoPerSubCommandAndFlag.at({subCommand, arg})};
+        baseFlagInfo->SetData(optionArg);
+    }
+
+    return {};
+}
 
 /*
 template <typename SubCommand>

@@ -3,31 +3,41 @@
 #include <array>
 #include <expected>
 #include <map>
-#include <print>
 #include <string>
 #include <type_traits>
-#include <vector>
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 class Flags
 {
 public:
-    struct BaseFlagInfo
+    static void SetSubCommandMapping(std::map<std::string_view, SubCommand> mapping);
+
+    template <typename T, SubCommand S = (SubCommand)-1>
+    static const T* AddFlag(std::string flag, T defaultValue);
+
+    static std::expected<void, std::string> ParseFlags(const int argc, char* const argv[]);
+    static void GetUsage();
+
+private:
+    class BaseFlagInfo
     {
     public:
-        virtual void SetData(std::string argv) = 0;
+        virtual ~BaseFlagInfo() = default;
+
+        virtual void SetData(std::string_view argv) = 0;
 
         std::string flag;
         SubCommand subCommand;
     };
 
     template <typename T>
-    struct FlagInfo : public BaseFlagInfo
+    class FlagInfo : public BaseFlagInfo
     {
+    public:
         T data;
 
-        void SetData(std::string argv) override
+        void SetData(std::string_view argv) override
         {
             data = argv;
         }
@@ -41,29 +51,8 @@ public:
         static std::array<FlagInfo<T>, 256> flagData;
     };
 
-    static std::map<std::string, BaseFlagInfo*> flagDataPerFlag;
-
-    template <typename T, SubCommand S = (SubCommand)-1>
-    static const T* AddFlag(std::string flag, T defaultValue)
-    {
-        FlagInfo<T> flagInfo{};
-        flagInfo.flag = flag;
-        flagInfo.subCommand = S;
-        flagInfo.data = defaultValue;
-
-        FlagData<T, S>::flagData[FlagData<T, S>::dataSize] = flagInfo;
-        size_t index = FlagData<T, S>::dataSize;
-        FlagData<T, S>::dataSize++;
-
-        flagDataPerFlag[flag] = &FlagData<T, S>::flagData[index];
-        return &FlagData<T, S>::flagData[index].data;
-    }
-
-    static void ParseFlags(std::string argv1, std::string argv2)
-    {
-        BaseFlagInfo* baseFlagInfo{flagDataPerFlag.at(argv1)};
-        baseFlagInfo->SetData(argv2);
-    }
+    static std::map<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag;
+    static std::map<std::string_view, SubCommand> subCommandMapping;
 };
 
 #include "Flags.tpp"
