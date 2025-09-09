@@ -41,7 +41,7 @@ public:
     static const bool* AddFlag(const std::string& flag, bool mandatory = true);
 
     static std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
-    static std::string GetUsage();
+    static std::string GetUsage(SubCommand subCommand = (SubCommand) -1);
 
 private:
     template <typename T, SubCommand S>

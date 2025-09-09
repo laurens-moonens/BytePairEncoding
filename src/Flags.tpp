@@ -71,8 +71,6 @@ template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 std::expected<SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int argc, char* const argv[])
 {
-    std::println("Program name: {}", argv[0]);
-
     SubCommand subCommand{(SubCommand)-1};
 
     if (argc > 1)
@@ -82,6 +80,10 @@ std::expected<SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int a
         {
             subCommand = Flags<SubCommand>::stringToSubCommand.at(subCommandString);
         }
+    }
+    else
+    {
+        return std::unexpected{std::format("ERROR: Missing command")};
     }
 
     for (int i{2}; i < argc; ++i)
@@ -110,21 +112,28 @@ std::expected<SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int a
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::string Flags<SubCommand>::GetUsage()
+std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 {
     std::string result{std::string(1024, '\0')};
-    //for (std::tuple<std::string_view, SubCommand> subCommand : Flags<SubCommand>::subCommandMapping)
-    //{
-    for (std::pair<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> kvp : Flags<SubCommand>::flagInfoPerSubCommandAndFlag)
+
+    if (subCommand == (SubCommand)-1)
     {
-        result.append(std::format("{} | {}", Flags<SubCommand>::subCommandToString.at(kvp.first.first), kvp.first.second));
-        if (kvp.second->mandatory)
+        //for (std::tuple<std::string_view, SubCommand> subCommand : Flags<SubCommand>::subCommandToString)
         {
-            result.append(" | mandatory");
         }
-        result.append("\n");
     }
-    //}
+    else
+    {
+        for (std::pair<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> kvp : Flags<SubCommand>::flagInfoPerSubCommandAndFlag)
+        {
+            result.append(std::format("{} | {}", Flags<SubCommand>::subCommandToString.at(kvp.first.first), kvp.first.second));
+            if (kvp.second->mandatory)
+            {
+                result.append(" | mandatory");
+            }
+            result.append("\n");
+        }
+    }
 
     return result;
 }

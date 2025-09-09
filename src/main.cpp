@@ -100,7 +100,9 @@ int main(int argc, char* argv[])
 
     //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
     const std::string* inputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};
-    const bool* testBoolFlag{Flags::AddFlag<BPE::SubCommand::Encode>("-p")};
+    const std::string* bpeOutputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path")};
+    const std::string* tokenOutputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path")};
+
     //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
     //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
     //Flags::AddFlag("-h", "HELP");
@@ -110,13 +112,17 @@ int main(int argc, char* argv[])
     if (!parseFlagsResult.has_value())
     {
         std::println(stderr, "{}", parseFlagsResult.error());
+
+        std::string usage{Flags::GetUsage()};
+        std::print("{}", usage);
+
+        return 1;
     }
 
-    std::string usage{Flags::GetUsage()};
-    std::print("{}", usage);
-
     std::println("{}", *inputFilePath);
-    std::println("{}", *testBoolFlag);
+    std::println("{}", *bpeOutputFilePath);
+    std::println("{}", *tokenOutputFilePath);
+    std::println("{}", (int)parseFlagsResult.value());
     //std::println("{}", *outputFilePath);
     //std::println("{}", *countFlag);
     //Flags::FlagInfo<std::string> flagInfo{
