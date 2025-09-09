@@ -32,6 +32,8 @@ template <typename SubCommand>
 class Flags
 {
 public:
+    static std::string programName;
+
     static void SetSubCommandMapping(const std::map<std::string_view, SubCommand>& mapping);
 
     template <typename T, SubCommand S = (SubCommand)-1>
@@ -41,7 +43,7 @@ public:
     static const bool* AddFlag(const std::string& flag, bool mandatory = true);
 
     static std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
-    static std::string GetUsage(SubCommand subCommand = (SubCommand) -1);
+    static std::string GetUsage(SubCommand subCommand = (SubCommand)-1);
 
 private:
     template <typename T, SubCommand S>

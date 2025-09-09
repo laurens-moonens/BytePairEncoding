@@ -7,6 +7,10 @@
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+std::string Flags<SubCommand>::programName{};
+
+template <typename SubCommand>
+    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <typename T, SubCommand S>
 size_t Flags<SubCommand>::FlagData<T, S>::dataSize{};
 
@@ -71,6 +75,8 @@ template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 std::expected<SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int argc, char* const argv[])
 {
+    Flags::programName = argv[0];
+
     SubCommand subCommand{(SubCommand)-1};
 
     if (argc > 1)
@@ -118,8 +124,19 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 
     if (subCommand == (SubCommand)-1)
     {
-        //for (std::tuple<std::string_view, SubCommand> subCommand : Flags<SubCommand>::subCommandToString)
+        std::println();
+        std::println("Usage: {} <command> [options]", programName);
+        std::println();
+        std::println("Commands:");
+        std::println("\tencode\t Encode the input file using byte pair encoding");
+        std::println("\tdecode\t Decode an encoded file using a BPE table");
+        std::println("\tinspect\t Inpsect a BPE table");
+        std::println("\tgenerate\t Generate new text (gibberish) based on an BPE table");
+        std::println();
+        std::println("Options:");
+        for (std::pair<SubCommand, std::string_view> subCommand : Flags<SubCommand>::subCommandToString)
         {
+            std::println("{}", subCommand.second);
         }
     }
     else
