@@ -10,9 +10,9 @@
 #include "BPE.h"
 #include "Flags.h"
 
-void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::SubCommand::NONE)
+void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::SubCommand::None)
 {
-    if (subCommand == BPE::SubCommand::NONE)
+    if (subCommand == BPE::SubCommand::None)
     {
         std::println();
         std::println("Usage: {} <command> [options]", programName);
@@ -83,20 +83,24 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
 
 int main(int argc, char* argv[])
 {
-    BPE::SubCommand subCommand{BPE::SubCommand::NONE};
+    BPE::SubCommand subCommand{BPE::SubCommand::None};
 
     std::string_view programName{argv[0]};
 
     std::queue<std::string_view> args{argv + 1, argv + argc};
 
     using Flags = Flags<BPE::SubCommand>;
-    Flags::SetSubCommandMapping(
-        {
-            {"encode", BPE::SubCommand::Encode},
-            {"decode", BPE::SubCommand::Decode},
-            {"inspect", BPE::SubCommand::Inspect},
-            {"generate", BPE::SubCommand::Generate},
-        });
+
+    Flags::SubCommandInfo info{BPE::SubCommand::Encode, "encode", "Encode the input file using byte pair encoding"};
+    Flags::SetSubCommandMapping({info});
+
+    //    Flags::SetSubCommandMapping(
+    //        {
+    //            {"encode", BPE::SubCommand::Encode},
+    //            {"decode", BPE::SubCommand::Decode},
+    //            {"inspect", BPE::SubCommand::Inspect},
+    //            {"generate", BPE::SubCommand::Generate},
+    //        });
 
     //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
     const std::string* inputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};
@@ -499,7 +503,7 @@ int main(int argc, char* argv[])
 
             break;
         }
-        case BPE::SubCommand::NONE:
+        case BPE::SubCommand::None:
         default:
             throw std::runtime_error("Subcommand not implemented");
             break;

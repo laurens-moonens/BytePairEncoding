@@ -13,21 +13,14 @@ namespace BPE
     constexpr TOKEN FIRST_TOKEN{CHAR_MAX + 1};
     constexpr int GENERATION_DEFAULT_TOKEN_COUNT{100};
 
-    enum class SomeOtherCommands : int
-    {
-        Encode,
-        Decode,
-        Inspect,
-        Generate
-    };
-
     enum class SubCommand : int
     {
-        NONE = -1,
+        None = -1,
         Encode,
         Decode,
         Inspect,
-        Generate
+        Generate,
+        Count
     };
 
     enum class GenerationEndCause

@@ -32,9 +32,16 @@ template <typename SubCommand>
 class Flags
 {
 public:
+    struct SubCommandInfo
+    {
+        SubCommand subCommand;
+        std::string subCommandString;
+        std::string info;
+    };
+
     static std::string programName;
 
-    static void SetSubCommandMapping(const std::map<std::string_view, SubCommand>& mapping);
+    static void SetSubCommandMapping(const std::initializer_list<Flags<SubCommand>::SubCommandInfo> mapping);
 
     template <typename T, SubCommand S = (SubCommand)-1>
     static const T* AddFlag(const std::string& flag, const std::string& parameterName, bool mandatory = true, const T& defaultValue = T{});

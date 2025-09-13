@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdarg>
 #include <print>
 #include <string>
 
@@ -35,14 +36,20 @@ std::map<SubCommand, std::string_view> Flags<SubCommand>::subCommandToString{};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-void Flags<SubCommand>::SetSubCommandMapping(const std::map<std::string_view, SubCommand>& mapping)
+//void Flags<SubCommand>::SetSubCommandMapping(const Flags<SubCommand>::SubCommandInfo mapping, ...)
+void Flags<SubCommand>::SetSubCommandMapping(const std::initializer_list<Flags<SubCommand>::SubCommandInfo> mapping)
 {
-    Flags<SubCommand>::stringToSubCommand = mapping;
-
-    for (std::pair<std::string_view, SubCommand> kvp : mapping)
+    for (Flags<SubCommand>::SubCommandInfo info : mapping)
     {
-        Flags<SubCommand>::subCommandToString[kvp.second] = kvp.first;
+        std::println("{}", info.info);
     }
+    //Flags<SubCommand>::stringToSubCommand = mapping;
+
+    //for (std::pair<std::string_view, SubCommand> kvp : mapping)
+    //{
+    //    Flags<SubCommand>::subCommandToString[kvp.second] = kvp.first;
+    //}
+    //
 }
 
 template <typename SubCommand>
