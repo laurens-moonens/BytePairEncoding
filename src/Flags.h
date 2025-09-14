@@ -1,9 +1,7 @@
 #pragma once
 
-#include <array>
 #include <expected>
 #include <map>
-#include <print>
 #include <string>
 #include <type_traits>
 
@@ -16,7 +14,7 @@ public:
 
     std::string flag;
     std::string parameterName;
-    bool mandatory;
+    bool required;
 };
 
 template <typename T>
@@ -36,18 +34,18 @@ public:
     {
         SubCommand subCommand;
         std::string subCommandString;
-        std::string info;
+        std::string info = "";
     };
 
     static std::string programName;
 
-    static void SetSubCommandMapping(const std::initializer_list<Flags<SubCommand>::SubCommandInfo> mapping);
+    static void SetSubCommandInfo(const std::initializer_list<Flags<SubCommand>::SubCommandInfo>& info);
 
     template <typename T, SubCommand S = (SubCommand)-1>
-    static const T* AddFlag(const std::string& flag, const std::string& parameterName, bool mandatory = true, const T& defaultValue = T{});
+    static const T* AddFlag(const std::string& flag, const std::string& parameterName, bool required = true, const T& defaultValue = T{});
 
     template <SubCommand S = (SubCommand)-1>
-    static const bool* AddFlag(const std::string& flag, bool mandatory = true);
+    static const bool* AddFlag(const std::string& flag, bool required = true);
 
     static std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
     static std::string GetUsage(SubCommand subCommand = (SubCommand)-1);

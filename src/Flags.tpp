@@ -19,12 +19,10 @@ template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <typename T, SubCommand S>
 std::array<FlagInfo<T>, 256> Flags<SubCommand>::FlagData<T, S>::flagData{};
-//std::array<typename Flags<SubCommand>::template FlagInfo<T>, 256> Flags<SubCommand>::FlagData<T, S>::flagData{};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> Flags<SubCommand>::flagInfoPerSubCommandAndFlag{};
-//std::map<std::pair<SubCommand, std::string>, typename Flags<SubCommand>::BaseFlagInfo*> Flags<SubCommand>::flagInfoPerSubCommandAndFlag{};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
@@ -32,35 +30,27 @@ std::map<std::string_view, SubCommand> Flags<SubCommand>::stringToSubCommand{};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-inline std::map<SubCommand, typename Flags<SubCommand>::SubCommandInfo> Flags<SubCommand>::subCommandToInfo;
+std::map<SubCommand, typename Flags<SubCommand>::SubCommandInfo> Flags<SubCommand>::subCommandToInfo;
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-//void Flags<SubCommand>::SetSubCommandMapping(const Flags<SubCommand>::SubCommandInfo mapping, ...)
-void Flags<SubCommand>::SetSubCommandMapping(const std::initializer_list<Flags<SubCommand>::SubCommandInfo> mapping)
+void Flags<SubCommand>::SetSubCommandInfo(const std::initializer_list<Flags<SubCommand>::SubCommandInfo>& info)
 {
-    for (Flags<SubCommand>::SubCommandInfo info : mapping)
+    for (Flags<SubCommand>::SubCommandInfo info : info)
     {
         Flags<SubCommand>::subCommandToInfo[info.subCommand] = info;
     }
-    //Flags<SubCommand>::stringToSubCommand = mapping;
-
-    //for (std::pair<std::string_view, SubCommand> kvp : mapping)
-    //{
-    //    Flags<SubCommand>::subCommandToString[kvp.second] = kvp.first;
-    //}
-    //
 }
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <typename T, SubCommand S>
-const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& parameterName, bool mandatory, const T& defaultValue)
+const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& parameterName, bool required, const T& defaultValue)
 {
     FlagInfo<T> flagInfo{};
     flagInfo.data = defaultValue;
     flagInfo.parameterName = parameterName;
-    flagInfo.mandatory = mandatory;
+    flagInfo.required = required;
 
     FlagData<T, S>::flagData[FlagData<T, S>::dataSize] = flagInfo;
     size_t index = FlagData<T, S>::dataSize;
@@ -73,9 +63,9 @@ const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <SubCommand S>
-const bool* Flags<SubCommand>::AddFlag(const std::string& flag, bool mandatory)
+const bool* Flags<SubCommand>::AddFlag(const std::string& flag, bool required)
 {
-    return AddFlag<bool, S>(flag, "", mandatory, false);
+    return AddFlag<bool, S>(flag, "", required, false);
 }
 
 template <typename SubCommand>
@@ -104,7 +94,7 @@ std::expected<SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int a
         std::string arg{argv[i]};
         if (!flagInfoPerSubCommandAndFlag.contains({subCommand, arg}))
         {
-            return std::unexpected{std::format("ERROR: Unknown option {} for subcommand {}", arg, (int)subCommand)};
+            return std::unexpected{std::format("ERROR: Unknown option {}", arg, (int)subCommand)};
         }
 
         ++i;
@@ -131,27 +121,32 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 
     if (subCommand == (SubCommand)-1)
     {
-        std::println();
-        std::println("Usage: {} <command> [options]", programName);
-        std::println();
-        std::println("Commands:");
+        result.append(std::format("\nUsage: {} <command> [options]\nCommands:\n", programName));
 
         for (std::pair<SubCommand, Flags<SubCommand>::SubCommandInfo> subCommandInfo : Flags<SubCommand>::subCommandToInfo)
         {
-            std::println("\t{}\t\t {}", subCommandInfo.second.subCommandString, subCommandInfo.second.info);
+            result.append(std::format("\t{}\t\t {}\n", subCommandInfo.second.subCommandString, subCommandInfo.second.info));
         }
 
-        std::println();
-        std::println("Options:");
+        result.append("\nOptions:\n");
     }
     else
     {
-        for (std::pair<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> kvp : Flags<SubCommand>::flagInfoPerSubCommandAndFlag)
+        SubCommandInfo subCommandInfo{Flags<SubCommand>::subCommandToInfo.at(subCommand)};
+        result.append(std::format("\nUsage: {} {}\n", programName, subCommandInfo.subCommandString));
+
+        result.append("\nOptions:\n");
+
+        for (std::pair<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> flagInfo : Flags<SubCommand>::flagInfoPerSubCommandAndFlag)
         {
-            result.append(std::format("{} | {}", Flags<SubCommand>::subCommandToInfo.at(kvp.first.first).subCommandString, kvp.first.second));
-            if (kvp.second->mandatory)
+            result.append(std::format("\t{} <{}>", flagInfo.first.second, flagInfo.second->parameterName));
+            if (flagInfo.second->required)
             {
-                result.append(" | mandatory");
+                result.append(" (REQUIRED)");
+            }
+            else
+            {
+                result.append(" (optional)");
             }
             result.append("\n");
         }
