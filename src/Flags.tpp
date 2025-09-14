@@ -32,7 +32,7 @@ std::map<std::string_view, SubCommand> Flags<SubCommand>::stringToSubCommand{};
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<SubCommand, std::string_view> Flags<SubCommand>::subCommandToString{};
+inline std::map<SubCommand, typename Flags<SubCommand>::SubCommandInfo> Flags<SubCommand>::subCommandToInfo;
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
@@ -41,7 +41,7 @@ void Flags<SubCommand>::SetSubCommandMapping(const std::initializer_list<Flags<S
 {
     for (Flags<SubCommand>::SubCommandInfo info : mapping)
     {
-        std::println("{}", info.info);
+        Flags<SubCommand>::subCommandToInfo[info.subCommand] = info;
     }
     //Flags<SubCommand>::stringToSubCommand = mapping;
 
@@ -135,22 +135,20 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
         std::println("Usage: {} <command> [options]", programName);
         std::println();
         std::println("Commands:");
-        std::println("\tencode\t Encode the input file using byte pair encoding");
-        std::println("\tdecode\t Decode an encoded file using a BPE table");
-        std::println("\tinspect\t Inpsect a BPE table");
-        std::println("\tgenerate\t Generate new text (gibberish) based on an BPE table");
+
+        for (std::pair<SubCommand, Flags<SubCommand>::SubCommandInfo> subCommandInfo : Flags<SubCommand>::subCommandToInfo)
+        {
+            std::println("\t{}\t\t {}", subCommandInfo.second.subCommandString, subCommandInfo.second.info);
+        }
+
         std::println();
         std::println("Options:");
-        for (std::pair<SubCommand, std::string_view> subCommand : Flags<SubCommand>::subCommandToString)
-        {
-            std::println("{}", subCommand.second);
-        }
     }
     else
     {
         for (std::pair<std::pair<SubCommand, std::string_view>, BaseFlagInfo*> kvp : Flags<SubCommand>::flagInfoPerSubCommandAndFlag)
         {
-            result.append(std::format("{} | {}", Flags<SubCommand>::subCommandToString.at(kvp.first.first), kvp.first.second));
+            result.append(std::format("{} | {}", Flags<SubCommand>::subCommandToInfo.at(kvp.first.first).subCommandString, kvp.first.second));
             if (kvp.second->mandatory)
             {
                 result.append(" | mandatory");

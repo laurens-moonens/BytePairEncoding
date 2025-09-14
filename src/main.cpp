@@ -91,16 +91,13 @@ int main(int argc, char* argv[])
 
     using Flags = Flags<BPE::SubCommand>;
 
-    Flags::SubCommandInfo info{BPE::SubCommand::Encode, "encode", "Encode the input file using byte pair encoding"};
-    Flags::SetSubCommandMapping({info});
-
-    //    Flags::SetSubCommandMapping(
-    //        {
-    //            {"encode", BPE::SubCommand::Encode},
-    //            {"decode", BPE::SubCommand::Decode},
-    //            {"inspect", BPE::SubCommand::Inspect},
-    //            {"generate", BPE::SubCommand::Generate},
-    //        });
+    Flags::SetSubCommandMapping(
+        {
+            {BPE::SubCommand::Encode, "encode", "Encode the input file using byte pair encoding"},
+            {BPE::SubCommand::Decode, "decode", "Decode an encoded file using a BPE table"},
+            {BPE::SubCommand::Inspect, "inspect", "Inpsect a BPE table"},
+            {BPE::SubCommand::Generate, "generate", "Generate new text (gibberish) based on an BPE table"},
+        });
 
     //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
     const std::string* inputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};

@@ -62,7 +62,7 @@ private:
 
     static std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag;
     static std::map<std::string_view, SubCommand> stringToSubCommand;
-    static std::map<SubCommand, std::string_view> subCommandToString;
+    static std::map<SubCommand, SubCommandInfo> subCommandToInfo;
 };
 
 #include "Flags.tpp"
