@@ -83,8 +83,6 @@ void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::
 
 int main(int argc, char* argv[])
 {
-    BPE::SubCommand subCommand{BPE::SubCommand::None};
-
     std::string_view programName{argv[0]};
 
     std::queue<std::string_view> args{argv + 1, argv + argc};
@@ -101,34 +99,46 @@ int main(int argc, char* argv[])
             {BPE::SubCommand::Generate, "generate", "Generate new text (gibberish) based on an BPE table"},
         });
 
-    //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
-    const std::string* inputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};
-    const std::string* bpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path")};
-    const std::string* tokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path", false)};
+    const std::string* encodeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path", "Input file to encode")};
+    const std::string* encodeBpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path", "Output file containing the BPE table")};
+    const std::string* encodeTokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path", "Output file containing the encodedtokens", false)};
+
+    //const std::string* decodeBpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-b", "path", "Input file containing the BPE table")};
+    //const std::string* decodeTokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-t", "path", "Input file containing the encoded tokens")};
+    //const std::string* decodeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-o", "path", "Output file containing the decoded text")};
 
     //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
     //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
     //Flags::AddFlag("-h", "HELP");
 
-    std::expected<BPE::SubCommand, std::string> parseFlagsResult{flags.ParseFlags(argc, argv)};
+    //TODO: Change this to return a struct (or a tuple)
+    //struct
+    //{
+    //  status (success, error, help, ...),
+    //  subcommand,
+    //  error message
+    //}
+    const auto& [subCommand, error]{flags.ParseFlags(argc, argv)};
 
-    if (!parseFlagsResult.has_value())
+    if (error)
     {
-        std::println(stderr, "{}", parseFlagsResult.error());
+        std::println("ERRRROOOOOORRRRR!");
+        std::println(stderr, "{}", error.value());
 
-        std::string usage{flags.GetUsage()};
+        std::string usage{flags.GetUsage(subCommand)};
         std::print("{}", usage);
 
         return 1;
     }
 
-    std::string usage{flags.GetUsage(BPE::SubCommand::Encode)};
-    std::print("{}", usage);
+    //std::string usage{flags.GetUsage(BPE::SubCommand::Encode)};
+    //std::print("{}", usage);
+    std::println("SUCCESS");
 
-    std::println("{}", *inputFilePath);
-    std::println("{}", *bpeOutputFilePath);
-    std::println("{}", *tokenOutputFilePath);
-    std::println("{}", (int)parseFlagsResult.value());
+    std::println("{}", *encodeInputFilePath);
+    std::println("{}", *encodeBpeOutputFilePath);
+    std::println("{}", *encodeTokenOutputFilePath);
+    std::println("{}", (int)subCommand);
     //std::println("{}", *outputFilePath);
     //std::println("{}", *countFlag);
     //Flags::FlagInfo<std::string> flagInfo{
@@ -155,6 +165,49 @@ int main(int argc, char* argv[])
 
     //std::println("{}", *f);
 
+    switch (subCommand)
+    {
+        case BPE::SubCommand::Encode:
+        {
+            std::expected<std::string, std::string> inputData{BPE::TryReadFileIntoContainer<std::string>(*encodeInputFilePath)};
+            if (!inputData.has_value())
+            {
+                std::println(stderr, "{}", inputData.error());
+                return 1;
+            }
+
+            const auto& [bpeTable, encodedString, info]{BPE::EncodeText(inputData.value())};
+
+            std::expected<void, std::string> writeBpeTableResult = BPE::TryWriteBasicStringToFile(bpeTable, *encodeBpeOutputFilePath);
+            if (!writeBpeTableResult.has_value())
+            {
+                std::println(stderr, "{}", writeBpeTableResult.error());
+                return 1;
+            }
+
+            if (!encodeTokenOutputFilePath->empty())
+            {
+                std::expected<void, std::string> writeTokensResult = BPE::TryWriteBasicStringToFile(encodedString, *encodeTokenOutputFilePath);
+                if (!writeTokensResult.has_value())
+                {
+                    std::println(stderr, "{}", writeTokensResult.error());
+                    return 1;
+                }
+            }
+
+            if (encodeTokenOutputFilePath->empty())
+            {
+                std::println("Successfully encoded in {} iterations.", info.EncodingIterationCount);
+            }
+            else
+            {
+                std::println("Succesfully encoded {} tokens to {} tokens in {} iterations.", info.EncodedStringInitialLength, info.EncodedStringLength, info.EncodingIterationCount);
+            }
+        }
+        default:
+            break;
+    }
+
     return 0;
 
     if (args.size() <= 0)
@@ -167,21 +220,21 @@ int main(int argc, char* argv[])
     std::string_view subCommandArg{args.front()};
     args.pop();
 
-    if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
-    else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
-    else if (subCommandArg == "inspect") subCommand = BPE::SubCommand::Inspect;
-    else if (subCommandArg == "generate") subCommand = BPE::SubCommand::Generate;
-    else if (subCommandArg == "-h" || subCommandArg == "--help")
-    {
-        PrintUsage(programName);
-        return 0;
-    }
-    else
-    {
-        std::println(stderr, "ERROR: Unknown command {}", subCommandArg);
-        PrintUsage(programName);
-        return 1;
-    }
+    //if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
+    //else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
+    //else if (subCommandArg == "inspect") subCommand = BPE::SubCommand::Inspect;
+    //else if (subCommandArg == "generate") subCommand = BPE::SubCommand::Generate;
+    //else if (subCommandArg == "-h" || subCommandArg == "--help")
+    //{
+    //    PrintUsage(programName);
+    //    return 0;
+    //}
+    //else
+    //{
+    //    std::println(stderr, "ERROR: Unknown command {}", subCommandArg);
+    //    PrintUsage(programName);
+    //    return 1;
+    //}
 
     if (args.size() > 0 && (args.front() == "-h" || args.front() == "--help"))
     {
@@ -237,41 +290,6 @@ int main(int argc, char* argv[])
                 std::println(stderr, "ERROR: Missing option '-b <file>'");
                 PrintUsage(programName, subCommand);
                 return 1;
-            }
-
-            std::expected<std::string, std::string> inputData{BPE::TryReadFileIntoContainer<std::string>(inputFilePath)};
-            if (!inputData.has_value())
-            {
-                std::println(stderr, "{}", inputData.error());
-                return 1;
-            }
-
-            auto [bpeTable, encodedString, info]{BPE::EncodeText(inputData.value())};
-
-            std::expected<void, std::string> writeBpeTableResult = BPE::TryWriteBasicStringToFile(bpeTable, bpeFilePath);
-            if (!writeBpeTableResult.has_value())
-            {
-                std::println(stderr, "{}", writeBpeTableResult.error());
-                return 1;
-            }
-
-            if (!tokenFilePath.empty())
-            {
-                std::expected<void, std::string> writeTokensResult = BPE::TryWriteBasicStringToFile(encodedString, tokenFilePath);
-                if (!writeTokensResult.has_value())
-                {
-                    std::println(stderr, "{}", writeTokensResult.error());
-                    return 1;
-                }
-            }
-
-            if (tokenFilePath.empty())
-            {
-                std::println("Successfully encoded in {} iterations.", info.EncodingIterationCount);
-            }
-            else
-            {
-                std::println("Succesfully encoded {} tokens to {} tokens in {} iterations.", info.EncodedStringInitialLength, info.EncodedStringLength, info.EncodingIterationCount);
             }
 
             break;
