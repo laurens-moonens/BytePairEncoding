@@ -8,10 +8,6 @@
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::string Flags<SubCommand>::programName{};
-
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <typename T, SubCommand S>
 size_t Flags<SubCommand>::FlagData<T, S>::dataSize{};
 
@@ -19,18 +15,6 @@ template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
 template <typename T, SubCommand S>
 std::array<FlagInfo<T>, 256> Flags<SubCommand>::FlagData<T, S>::flagData{};
-
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> Flags<SubCommand>::flagInfoPerSubCommandAndFlag{};
-
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<std::string_view, SubCommand> Flags<SubCommand>::stringToSubCommand{};
-
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<SubCommand, typename Flags<SubCommand>::SubCommandInfo> Flags<SubCommand>::subCommandToInfo;
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
@@ -60,13 +44,13 @@ const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& 
     return &FlagData<T, S>::flagData[index].data;
 }
 
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-template <SubCommand S>
-const bool* Flags<SubCommand>::AddFlag(const std::string& flag, bool required)
-{
-    return AddFlag<bool, S>(flag, "", required, false);
-}
+//template <typename SubCommand>
+//    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
+//template <SubCommand S>
+//const bool* Flags<SubCommand>::AddFlag(const std::string& flag, bool required)
+//{
+//    return AddFlag<bool, S>(flag, "", required, false);
+//}
 
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>

@@ -89,9 +89,11 @@ int main(int argc, char* argv[])
 
     std::queue<std::string_view> args{argv + 1, argv + argc};
 
-    using Flags = Flags<BPE::SubCommand>;
+    Flags<BPE::SubCommand> flags{};
+    //Flags<BPE::SubCommand>& flags = Flags<BPE::SubCommand>::GetInstance();
+    //using Flags = Flags<BPE::SubCommand>;
 
-    Flags::SetSubCommandInfo(
+    flags.SetSubCommandInfo(
         {
             {BPE::SubCommand::Encode, "encode", "Encode the input file using byte pair encoding"},
             {BPE::SubCommand::Decode, "decode", "Decode an encoded file using a BPE table"},
@@ -100,27 +102,27 @@ int main(int argc, char* argv[])
         });
 
     //const std::string* flagData{Flags::AddFlag<std::string>("-i", "input", "input file path", true, "default testery testeroo")};
-    const std::string* inputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};
-    const std::string* bpeOutputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path")};
-    const std::string* tokenOutputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path", false)};
+    const std::string* inputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-i", "path")};
+    const std::string* bpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path")};
+    const std::string* tokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path", false)};
 
     //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
     //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
     //Flags::AddFlag("-h", "HELP");
 
-    std::expected<BPE::SubCommand, std::string> parseFlagsResult{Flags::ParseFlags(argc, argv)};
+    std::expected<BPE::SubCommand, std::string> parseFlagsResult{flags.ParseFlags(argc, argv)};
 
     if (!parseFlagsResult.has_value())
     {
         std::println(stderr, "{}", parseFlagsResult.error());
 
-        std::string usage{Flags::GetUsage()};
+        std::string usage{flags.GetUsage()};
         std::print("{}", usage);
 
         return 1;
     }
 
-    std::string usage{Flags::GetUsage(BPE::SubCommand::Encode)};
+    std::string usage{flags.GetUsage(BPE::SubCommand::Encode)};
     std::print("{}", usage);
 
     std::println("{}", *inputFilePath);

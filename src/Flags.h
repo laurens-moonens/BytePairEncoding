@@ -30,6 +30,10 @@ template <typename SubCommand>
 class Flags
 {
 public:
+    Flags(){};
+    Flags(const Flags&) = delete;
+    void operator=(const Flags&) = delete;
+
     struct SubCommandInfo
     {
         SubCommand subCommand;
@@ -37,20 +41,21 @@ public:
         std::string info = "";
     };
 
-    static std::string programName;
+    std::string programName{};
 
-    static void SetSubCommandInfo(const std::initializer_list<Flags<SubCommand>::SubCommandInfo>& info);
+    void SetSubCommandInfo(const std::initializer_list<Flags<SubCommand>::SubCommandInfo>& info);
 
     template <typename T, SubCommand S = (SubCommand)-1>
-    static const T* AddFlag(const std::string& flag, const std::string& parameterName, bool required = true, const T& defaultValue = T{});
+    const T* AddFlag(const std::string& flag, const std::string& parameterName, bool required = true, const T& defaultValue = T{});
 
-    template <SubCommand S = (SubCommand)-1>
-    static const bool* AddFlag(const std::string& flag, bool required = true);
+    //template <SubCommand S = (SubCommand)-1>
+    //static const bool* AddFlag(const std::string& flag, bool required = true);
 
-    static std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
-    static std::string GetUsage(SubCommand subCommand = (SubCommand)-1);
+    std::expected<SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
+    std::string GetUsage(SubCommand subCommand = (SubCommand)-1);
 
 private:
+
     template <typename T, SubCommand S>
     struct FlagData
     {
@@ -58,9 +63,9 @@ private:
         static std::array<FlagInfo<T>, 256> flagData;
     };
 
-    static std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag;
-    static std::map<std::string_view, SubCommand> stringToSubCommand;
-    static std::map<SubCommand, SubCommandInfo> subCommandToInfo;
+    std::map<std::pair<SubCommand, std::string>, BaseFlagInfo*> flagInfoPerSubCommandAndFlag{};
+    std::map<std::string_view, SubCommand> stringToSubCommand{};
+    std::map<SubCommand, SubCommandInfo> subCommandToInfo{};
 };
 
 #include "Flags.tpp"
