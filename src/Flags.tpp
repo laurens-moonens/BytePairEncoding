@@ -166,6 +166,7 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
         }
         else
         {
+            //TODO: Print default value
             optionalFlags.push_back({flag, flagInfo});
         }
     }
@@ -194,9 +195,10 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
         {
             result.append(" (optional)");
         }
-        result.append("\n\n");
+        result.append("\n");
     }
 
+    result.append("\n");
     return result;
 }
 

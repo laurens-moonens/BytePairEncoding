@@ -108,6 +108,14 @@ int main(int argc, char* argv[])
     const std::string* decodeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-o", "path", "Output file containing the decoded text")};
 
     const std::string* inspectBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Inspect>("-b", "path", "Input file containing the BPE table")};
+
+    //std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
+    //std::println("\t-o <file>\t Output file to write the generate text to (optional)");
+    //std::println("\t-c <value>\t Number of tokens to generate (optional, default: {})", BPE::GENERATION_DEFAULT_TOKEN_COUNT);
+    const std::string* generateBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Generate>("-b", "path", "Input file containing the BPE table")};
+    const std::string* generateOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Generate>("-o", "path", "Output file to write the generate text to", false)};
+    const int* generateTokenCount{flags.AddFlag<int, BPE::SubCommand::Generate>("-c", "value", "Number of tokens to generate", false, BPE::GENERATION_DEFAULT_TOKEN_COUNT)};
+
     //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
     //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
     //Flags::AddFlag("-h", "HELP");
@@ -249,7 +257,63 @@ int main(int argc, char* argv[])
         }
         break;
 
+        case BPE::SubCommand::Generate:
+        {
+            if (*generateTokenCount <= 0)
+            {
+                std::println(stderr, "ERROR: Token count should be greater than zero.");
+                return 1;
+            }
+
+            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(*generateBpeInputFilePath)};
+            if (!bpeTable.has_value())
+            {
+                std::println(stderr, "{}", bpeTable.error());
+                return 1;
+            }
+
+            auto [generatedTokenString, info]{BPE::GenerateTokenString(bpeTable.value(), *generateTokenCount)};
+            auto [decodedString, _]{BPE::DecodeString(generatedTokenString, bpeTable.value())};
+
+            std::string lastTokenDecoded{};
+            BPE::DecodeToken(info.LastToken, lastTokenDecoded, bpeTable.value());
+
+            switch (info.EndCause)
+            {
+                case BPE::GenerationEndCause::CountReached:
+                    std::println("Successfully generated {} tokens.", info.TokenCount);
+                    break;
+                case BPE::GenerationEndCause::NoNextTokenFound:
+                    std::println("Generated {} tokens. No next token was found after token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
+                    break;
+                case BPE::GenerationEndCause::TerminalTokenReached:
+                    std::println("Generated {} tokens. Reached terminal token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
+                    break;
+            }
+
+            if (generateOutputFilePath->empty())
+            {
+                std::println("{}\n", decodedString);
+            }
+            else
+            {
+                std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, *generateOutputFilePath)};
+                if (!writeStringResult.has_value())
+                {
+                    std::println(stderr, "{}", writeStringResult.error());
+                    return 1;
+                }
+                else
+                {
+                    std::println("-> written to \"{}\"", generateOutputFilePath->c_str());
+                }
+            }
+        }
+        break;
+
+        case BPE::SubCommand::None:
         default:
+            throw std::runtime_error("Subcommand not implemented");
             break;
     }
 
@@ -397,7 +461,6 @@ int main(int argc, char* argv[])
 
             break;
         }
-    */
         case BPE::SubCommand::Inspect:
         {
             std::filesystem::path bpeFilePath{};
@@ -477,12 +540,6 @@ int main(int argc, char* argv[])
                 }
             }
 
-            if (tokenCount <= 0)
-            {
-                std::println(stderr, "ERROR: Token count should be greater than zero.");
-                return 1;
-            }
-
             if (bpeFilePath.empty())
             {
                 std::println(stderr, "ERROR: Missing option '-b <file>'");
@@ -490,52 +547,9 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(bpeFilePath)};
-            if (!bpeTable.has_value())
-            {
-                std::println(stderr, "{}", bpeTable.error());
-                return 1;
-            }
-
-            auto [generatedTokenString, info]{BPE::GenerateTokenString(bpeTable.value(), tokenCount)};
-            auto [decodedString, _]{BPE::DecodeString(generatedTokenString, bpeTable.value())};
-
-            std::string lastTokenDecoded{};
-            BPE::DecodeToken(info.LastToken, lastTokenDecoded, bpeTable.value());
-
-            switch (info.EndCause)
-            {
-                case BPE::GenerationEndCause::CountReached:
-                    std::println("Successfully generated {} tokens.", info.TokenCount);
-                    break;
-                case BPE::GenerationEndCause::NoNextTokenFound:
-                    std::println("Generated {} tokens. No next token was found after token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
-                    break;
-                case BPE::GenerationEndCause::TerminalTokenReached:
-                    std::println("Generated {} tokens. Reached terminal token |{}| ({})", info.TokenCount, lastTokenDecoded, (uint)info.LastToken);
-                    break;
-            }
-
-            if (outputFilePath.empty())
-            {
-                std::println("{}\n", decodedString);
-            }
-            else
-            {
-                std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, outputFilePath)};
-                if (!writeStringResult.has_value())
-                {
-                    std::println(stderr, "{}", writeStringResult.error());
-                    return 1;
-                }
-                else
-                {
-                    std::println("-> written to \"{}\"", outputFilePath.c_str());
-                }
-            }
-
             break;
         }
+    */
         case BPE::SubCommand::None:
         default:
             throw std::runtime_error("Subcommand not implemented");
