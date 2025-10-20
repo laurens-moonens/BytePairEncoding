@@ -103,10 +103,11 @@ int main(int argc, char* argv[])
     const std::string* encodeBpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-b", "path", "Output file containing the BPE table")};
     const std::string* encodeTokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Encode>("-t", "path", "Output file containing the encodedtokens", false)};
 
-    //const std::string* decodeBpeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-b", "path", "Input file containing the BPE table")};
-    //const std::string* decodeTokenOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-t", "path", "Input file containing the encoded tokens")};
-    //const std::string* decodeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-o", "path", "Output file containing the decoded text")};
+    const std::string* decodeBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-b", "path", "Input file containing the BPE table")};
+    const std::string* decodeTokenInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-t", "path", "Input file containing the encoded tokens")};
+    const std::string* decodeOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Decode>("-o", "path", "Output file containing the decoded text")};
 
+    const std::string* inspectBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Inspect>("-b", "path", "Input file containing the BPE table")};
     //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
     //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
     //Flags::AddFlag("-h", "HELP");
@@ -122,7 +123,7 @@ int main(int argc, char* argv[])
 
     if (error)
     {
-        std::println("ERRRROOOOOORRRRR!");
+        //std::println("ERRRROOOOOORRRRR!");
         std::println(stderr, "{}", error.value());
 
         std::string usage{flags.GetUsage(subCommand)};
@@ -133,12 +134,12 @@ int main(int argc, char* argv[])
 
     //std::string usage{flags.GetUsage(BPE::SubCommand::Encode)};
     //std::print("{}", usage);
-    std::println("SUCCESS");
+    //std::println("SUCCESS");
 
-    std::println("{}", *encodeInputFilePath);
-    std::println("{}", *encodeBpeOutputFilePath);
-    std::println("{}", *encodeTokenOutputFilePath);
-    std::println("{}", (int)subCommand);
+    //std::println("{}", *encodeInputFilePath);
+    //std::println("{}", *encodeBpeOutputFilePath);
+    //std::println("{}", *encodeTokenOutputFilePath);
+    //std::println("{}", (int)subCommand);
     //std::println("{}", *outputFilePath);
     //std::println("{}", *countFlag);
     //Flags::FlagInfo<std::string> flagInfo{
@@ -204,6 +205,50 @@ int main(int argc, char* argv[])
                 std::println("Succesfully encoded {} tokens to {} tokens in {} iterations.", info.EncodedStringInitialLength, info.EncodedStringLength, info.EncodingIterationCount);
             }
         }
+        break;
+
+        case BPE::SubCommand::Decode:
+        {
+            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(*decodeBpeInputFilePath)};
+            if (!bpeTable.has_value())
+            {
+                std::println(stderr, "{}", bpeTable.error());
+                return 1;
+            }
+
+            std::expected<std::basic_string<BPE::TOKEN>, std::string> tokens{BPE::TryReadFileIntoContainer<std::basic_string<BPE::TOKEN>>(*decodeTokenInputFilePath)};
+            if (!tokens.has_value())
+            {
+                std::println(stderr, "{}", tokens.error());
+                return 1;
+            }
+
+            auto [decodedString, info]{BPE::DecodeString(tokens.value(), bpeTable.value())};
+
+            std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, *decodeOutputFilePath)};
+            if (!writeStringResult.has_value())
+            {
+                std::println(stderr, "{}", writeStringResult.error());
+                return 1;
+            }
+
+            std::println("Successfully decoded {} tokens to {} tokens.", info.EncodedStringLength, info.DecodedStringLength);
+        }
+        break;
+
+        case BPE::SubCommand::Inspect:
+        {
+            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(*inspectBpeInputFilePath)};
+            if (!bpeTable.has_value())
+            {
+                std::println(stderr, "{}", bpeTable.error());
+                return 1;
+            }
+
+            BPE::PrintBpeTable(bpeTable.value());
+        }
+        break;
+
         default:
             break;
     }
@@ -244,6 +289,7 @@ int main(int argc, char* argv[])
 
     switch (subCommand)
     {
+        /*
         case BPE::SubCommand::Encode:
         {
             std::filesystem::path inputFilePath{};
@@ -349,33 +395,9 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(bpeFilePath)};
-            if (!bpeTable.has_value())
-            {
-                std::println(stderr, "{}", bpeTable.error());
-                return 1;
-            }
-
-            std::expected<std::basic_string<BPE::TOKEN>, std::string> tokens{BPE::TryReadFileIntoContainer<std::basic_string<BPE::TOKEN>>(tokenFilePath)};
-            if (!tokens.has_value())
-            {
-                std::println(stderr, "{}", tokens.error());
-                return 1;
-            }
-
-            auto [decodedString, info]{BPE::DecodeString(tokens.value(), bpeTable.value())};
-
-            std::expected<void, std::string> writeStringResult{BPE::TryWriteBasicStringToFile(decodedString, outputFilePath)};
-            if (!writeStringResult.has_value())
-            {
-                std::println(stderr, "{}", writeStringResult.error());
-                return 1;
-            }
-
-            std::println("Successfully decoded {} tokens to {} tokens.", info.EncodedStringLength, info.DecodedStringLength);
-
             break;
         }
+    */
         case BPE::SubCommand::Inspect:
         {
             std::filesystem::path bpeFilePath{};
@@ -404,15 +426,6 @@ int main(int argc, char* argv[])
                 PrintUsage(programName, subCommand);
                 return 1;
             }
-
-            std::expected<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>, std::string> bpeTable{BPE::TryReadFileIntoContainer<std::vector<std::pair<BPE::TOKEN, BPE::TOKEN>>>(bpeFilePath)};
-            if (!bpeTable.has_value())
-            {
-                std::println(stderr, "{}", bpeTable.error());
-                return 1;
-            }
-
-            BPE::PrintBpeTable(bpeTable.value());
 
             break;
         }

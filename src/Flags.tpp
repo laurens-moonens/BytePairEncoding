@@ -140,61 +140,61 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 
         //TODO: Only print this if there are any options without a subcommand
         result.append("\nOptions:\n");
+
+        return result;
     }
-    else
+
+    SubCommandInfo subCommandInfo{subCommandToInfo.at(subCommand)};
+    result.append(std::format("\nUsage: {} {} ", programName, subCommandInfo.subCommandString));
+
+    const std::map<std::string, BaseFlagInfo*>& flagsForSubCommand{flagInfoPerSubCommandAndFlag.at((int)subCommand)};
+
+    if (flagsForSubCommand.empty())
     {
-        SubCommandInfo subCommandInfo{subCommandToInfo.at(subCommand)};
-        result.append(std::format("\nUsage: {} {} ", programName, subCommandInfo.subCommandString));
+        result.append("\n\n");
+        return result;
+    }
 
-        const std::map<std::string, BaseFlagInfo*>& flagsForSubCommand{flagInfoPerSubCommandAndFlag.at((int)subCommand)};
+    std::vector<std::pair<std::string, BaseFlagInfo*>> optionalFlags{};
+    optionalFlags.reserve(flagsForSubCommand.size());
 
-        if (flagsForSubCommand.empty())
+    for (const auto& [flag, flagInfo] : flagsForSubCommand)
+    {
+        if (flagInfo->required)
         {
-            result.append("\n\n");
-            return result;
+            result.append(std::format("{} <{}> ", flag, flagInfo->parameterName));
         }
-
-        std::vector<std::pair<std::string, BaseFlagInfo*>> optionalFlags{};
-        optionalFlags.reserve(flagsForSubCommand.size());
-
-        for (const auto& [flag, flagInfo] : flagsForSubCommand)
+        else
         {
-            if (flagInfo->required)
-            {
-                result.append(std::format("{} <{}> ", flag, flagInfo->parameterName));
-            }
-            else
-            {
-                optionalFlags.push_back({flag, flagInfo});
-            }
+            optionalFlags.push_back({flag, flagInfo});
         }
+    }
 
-        if (optionalFlags.size() > 0)
+    if (optionalFlags.size() > 0)
+    {
+        result.append("[");
+        for (const auto& [flag, flagInfo] : optionalFlags)
         {
-            result.append("[");
-            for (const auto& [flag, flagInfo] : optionalFlags)
-            {
-                result.append(std::format("{} <{}> ", flag, flagInfo->parameterName));
-            }
-            result.pop_back();
-            result.append("]");
+            result.append(std::format("{} <{}> ", flag, flagInfo->parameterName));
         }
+        result.pop_back();
+        result.append("]");
+    }
 
-        result.append("\n\nOptions:\n");
+    result.append("\n\nOptions:\n");
 
-        for (const auto& [flag, flagInfo] : flagsForSubCommand)
+    for (const auto& [flag, flagInfo] : flagsForSubCommand)
+    {
+        result.append(std::format("\t{} <{}>\t{}", flag, flagInfo->parameterName, flagInfo->description));
+        if (flagInfo->required)
         {
-            result.append(std::format("\t{} <{}>\t{}", flag, flagInfo->parameterName, flagInfo->description));
-            if (flagInfo->required)
-            {
-                result.append(" (REQUIRED)");
-            }
-            else
-            {
-                result.append(" (optional)");
-            }
-            result.append("\n");
+            result.append(" (REQUIRED)");
         }
+        else
+        {
+            result.append(" (optional)");
+        }
+        result.append("\n\n");
     }
 
     return result;
