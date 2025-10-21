@@ -1,11 +1,11 @@
 #pragma once
 
 #include <expected>
-#include <optional>
-#include <vector>
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 class BaseFlagInfo
 {
@@ -33,7 +33,7 @@ template <typename SubCommand>
 class Flags
 {
 public:
-    Flags(){};
+    Flags() {};
     Flags(const Flags&) = delete;
     void operator=(const Flags&) = delete;
 
@@ -44,6 +44,13 @@ public:
         std::string info = "";
     };
 
+    enum class ParseStatus
+    {
+        Error,
+        Success,
+        Help
+    };
+
     std::string programName{};
 
     void SetSubCommandInfo(const std::initializer_list<Flags<SubCommand>::SubCommandInfo>& info);
@@ -51,14 +58,10 @@ public:
     template <typename T, SubCommand S = (SubCommand)-1>
     const T* AddFlag(const std::string& flag, const std::string& parameterName, const std::string& description, bool required = true, const T& defaultValue = T{});
 
-    //template <SubCommand S = (SubCommand)-1>
-    //static const bool* AddFlag(const std::string& flag, bool required = true);
-
-    std::pair<SubCommand, std::optional<std::string>>  ParseFlags(const int argc, char* const argv[]);
+    std::tuple<ParseStatus, SubCommand, std::string> ParseFlags(const int argc, char* const argv[]);
     std::string GetUsage(SubCommand subCommand = (SubCommand)-1);
 
 private:
-
     template <typename T, SubCommand S>
     struct FlagData
     {

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdarg>
+#include <format>
 #include <optional>
 #include <print>
 #include <string>
@@ -35,13 +37,16 @@ template <typename SubCommand>
 template <typename T, SubCommand S>
 const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& parameterName, const std::string& desciption, bool required, const T& defaultValue)
 {
-    //TODO: Error if flag was already added (in case of -h for example)
-
     FlagInfo<T> flagInfo{};
     flagInfo.data = defaultValue;
     flagInfo.parameterName = parameterName;
     flagInfo.description = desciption;
     flagInfo.required = required;
+
+    if (flagInfoPerSubCommandAndFlag[(int)S].contains(flag))
+    {
+        throw std::runtime_error(std::format("Flag \"{}\" was already added for command {}", flag, subCommandToInfo.at(S).subCommandString));
+    }
 
     FlagData<T, S>::flagData[FlagData<T, S>::dataSize] = flagInfo;
     size_t index = FlagData<T, S>::dataSize;
@@ -51,17 +56,9 @@ const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& 
     return &FlagData<T, S>::flagData[index].data;
 }
 
-//template <typename SubCommand>
-//    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-//template <SubCommand S>
-//const bool* Flags<SubCommand>::AddFlag(const std::string& flag, bool required)
-//{
-//    return AddFlag<bool, S>(flag, "", required, false);
-//}
-
 template <typename SubCommand>
     requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::pair<SubCommand, std::optional<std::string>> Flags<SubCommand>::ParseFlags(const int argc, char* const argv[])
+std::tuple<typename Flags<SubCommand>::ParseStatus, SubCommand, std::string> Flags<SubCommand>::ParseFlags(const int argc, char* const argv[])
 {
     Flags::programName = argv[0];
 
@@ -74,33 +71,40 @@ std::pair<SubCommand, std::optional<std::string>> Flags<SubCommand>::ParseFlags(
         {
             subCommand = stringToSubCommand.at(subCommandString);
         }
+        else if (subCommandString == "-h")
+        {
+            return {ParseStatus::Help, subCommand, ""};
+        }
         else
         {
-            return {subCommand, std::format("ERROR: Unknown command {}", subCommandString)};
+            return {ParseStatus::Error, subCommand, std::format("ERROR: Unknown command {}", subCommandString)};
         }
     }
     else
     {
-        return {subCommand, std::format("ERROR: Missing command")};
+        return {ParseStatus::Error, subCommand, std::format("ERROR: Missing command")};
     }
 
-    //std::vector<std::pair<SubCommand, std::string>> parsedOptions{};
     std::map<std::string, BaseFlagInfo*> flagsForSelectedSubCommand{flagInfoPerSubCommandAndFlag.at((int)subCommand)};
 
     for (int i{2}; i < argc; ++i)
     {
         std::string arg{argv[i]};
 
-        if (!flagsForSelectedSubCommand.contains(arg))
+        if (arg == "-h")
         {
-            return {subCommand, std::format("ERROR: Unknown option {}", arg, (int)subCommand)};
+            return {ParseStatus::Help, subCommand, ""};
+        }
+        else if (!flagsForSelectedSubCommand.contains(arg))
+        {
+            return {ParseStatus::Error, subCommand, std::format("ERROR: Unknown option {}", arg, (int)subCommand)};
         }
 
         ++i;
 
         if (i >= argc)
         {
-            return {subCommand, std::format("ERROR: Missing value for option {}", arg)};
+            return {ParseStatus::Error, subCommand, std::format("ERROR: Missing value for option {}", arg)};
         }
 
         std::string_view optionArg{argv[i]};
@@ -116,11 +120,11 @@ std::pair<SubCommand, std::optional<std::string>> Flags<SubCommand>::ParseFlags(
         BaseFlagInfo* baseFlagInfo = kvp.second;
         if (baseFlagInfo->isDataSet == false && baseFlagInfo->required)
         {
-            return {subCommand, std::format("ERROR: Missing option {}", flag)};
+            return {ParseStatus::Error, subCommand, std::format("ERROR: Missing option {}", flag)};
         }
     }
 
-    return {subCommand, std::nullopt};
+    return {ParseStatus::Success, subCommand, ""};
 }
 
 template <typename SubCommand>
@@ -131,15 +135,15 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 
     if (subCommand == (SubCommand)-1)
     {
-        result.append(std::format("\nUsage: {} <command> [options]\nCommands:\n", programName));
+        result.append(std::format("\nUsage: {} <command> [options]\n\nCommands:\n", programName));
 
         for (const auto& [subCommand, subCommandInfo] : Flags<SubCommand>::subCommandToInfo)
         {
             result.append(std::format("\t{}\t\t {}\n", subCommandInfo.subCommandString, subCommandInfo.info));
         }
 
-        //TODO: Only print this if there are any options without a subcommand
-        result.append("\nOptions:\n");
+        result.append("\nOptions:\n\t-h\tPrint this help message\n\n");
+        //TODO: Print options without subcommand here
 
         return result;
     }
@@ -173,13 +177,10 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
 
     if (optionalFlags.size() > 0)
     {
-        result.append("[");
         for (const auto& [flag, flagInfo] : optionalFlags)
         {
-            result.append(std::format("{} <{}> ", flag, flagInfo->parameterName));
+            result.append(std::format("[{} <{}>] ", flag, flagInfo->parameterName));
         }
-        result.pop_back();
-        result.append("]");
     }
 
     result.append("\n\nOptions:\n");
@@ -198,96 +199,7 @@ std::string Flags<SubCommand>::GetUsage(SubCommand subCommand)
         result.append("\n");
     }
 
-    result.append("\n");
+    result.append("\n\t-h\t\tPrint this help message\n\n");
+
     return result;
 }
-
-/*
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-std::map<std::string, BaseFlagData*> Flags<SubCommand>::FlagContainerPerFlagPerSubCommand{};
-//std::map<std::tuple<SubCommand, std::string>, std::vector<BaseFlagData*>> Flags<SubCommand>::FlagContainerPerFlagPerSubCommand{};
-
-template <typename T>
-size_t FlagContainer<T>::flagDataSize{};
-
-template <typename T>
-std::array<FlagData<T>, FlagContainer<T>::MAX_FLAGS> FlagContainer<T>::flagData{};
-
-template <typename SubCommand>
-    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-template <typename T>
-const T* Flags<SubCommand>::AddFlag(std::string flag, std::string flagParameterName, std::string description, bool mandatory, T defaultValue, SubCommand subCommand)
-{
-    (void)subCommand;
-    //typename FlagData<T>::Flag flag;
-    //flag.info = flagInfo;
-    //flag.data = flagInfo.defaultValue;
-    //FlagData<T>::AddFlag(flag);
-    //FlagDataPerFlag[flagInfo.flag] = flag;
-    //return &(FlagDataPerFlag[flagInfo.flag].data);
-
-    //typename FlagData<T>::Flag* flag{FlagData<T>::AddFlag(flagInfo)};
-
-    //std::tuple<SubCommand, std::string> key{subCommand, flag};
-    const T* flagData{FlagContainer<T>::AddFlag(flag, flagParameterName, description, mandatory, defaultValue)};
-    FlagData<T> F{};
-    F.data = flagData;
-    Flags<SubCommand>::FlagContainerPerFlagPerSubCommand[flag] = &F;
-
-    //std::println("Returned flag: {}", flag->info.flag);
-    //// TODO: Assert that flag was not added yet;
-    //FlagDataPerFlag[flag->info.flag] = flag;
-    //return &flag->data;
-}
-
-template <typename T>
-const T* FlagContainer<T>::AddFlag(std::string flag, std::string flagParameterName, std::string description, bool mandatory, T defaultValue)
-{
-    (void)flag;
-    (void)flagParameterName;
-    (void)description;
-    (void)mandatory;
-    (void)defaultValue;
-
-    T flagData{};
-    //            flag.info = flagInfo;
-    flagData = defaultValue;
-    //FlagData<T>::flagData[FlagData<T>::flagDataSize] = flagData;
-    //size_t index = FlagData<T>::flagDataSize;
-    FlagContainer<T>::flagDataSize++;
-
-    //return &FlagData<T>::flagData[index].data;
-    return NULL;
-    //            //return &flagData[flagDataSize++].data;
-    //            int index = flagDataSize;
-    //            ++flagDataSize;
-    //            return &flagData[index];
-}
-
-//template <typename SubCommand>
-//    requires std::is_enum_v<SubCommand> && std::is_signed_v<std::underlying_type_t<SubCommand>>
-//std::expected<void, std::string_view> Flags<SubCommand>::ParseFlags(int argc, char* argv[])
-//{
-//    for (int i{0}; i < argc; ++i)
-//    {
-//        const char* arg{argv[i]};
-//
-//        std::println("Arg to find = {}", arg);
-//
-//        if (FlagDataPerFlag.contains(arg) == false)
-//        {
-//            std::println("ERROR: Unknown option '{}'", arg);
-//            //return std::unexpected(std::format("ERROR: Unknown option '{}'", argv));
-//        }
-//        else
-//        {
-//            std::println("Found flag {}", arg);
-//            BaseFlag* flag{FlagDataPerFlag.at(arg)};
-//            flag->SetData(arg);
-//        }
-//    }
-//
-//    return {};
-//}
-*/

@@ -2,100 +2,21 @@
 #include <filesystem>
 #include <format>
 #include <print>
-#include <queue>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
 #include "BPE.h"
 #include "Flags.h"
 
-void PrintUsage(std::string_view programName, BPE::SubCommand subCommand = BPE::SubCommand::None)
-{
-    if (subCommand == BPE::SubCommand::None)
-    {
-        std::println();
-        std::println("Usage: {} <command> [options]", programName);
-        std::println();
-        std::println("Commands:");
-        std::println("\tencode\t Encode the input file using byte pair encoding");
-        std::println("\tdecode\t Decode an encoded file using a BPE table");
-        std::println("\tinspect\t Inpsect a BPE table");
-        std::println("\tgenerate\t Generate new text (gibberish) based on an BPE table");
-        std::println();
-        std::println("Options:");
-    }
-    else
-    {
-        switch (subCommand)
-        {
-            case BPE::SubCommand::Encode:
-                std::println();
-                std::println("Usage: {} encode -i <input> -b <bpe-output> [-t <token-output>]", programName);
-                std::println();
-                std::println("Options:");
-                std::println("\t-i <file>\t Input file to encode (REQUIRED)");
-                std::println("\t-b <file>\t Output file containing the BPE table (REQUIRED)");
-                std::println("\t-t <file>\t Output file containing the encoded tokens (optional)");
-                std::println();
-                break;
-
-            case BPE::SubCommand::Decode:
-                std::println();
-                std::println("Usage: {} decode -b <bpe-input> -t <token-input> -o <output-file>", programName);
-                std::println();
-                std::println("Options:");
-                std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
-                std::println("\t-t <file>\t Input file containing the encoded tokens (REQUIRED)");
-                std::println("\t-o <file>\t Output file containing the decoded text (REQUIRED)");
-                std::println();
-                break;
-
-            case BPE::SubCommand::Inspect:
-                std::println();
-                std::println("Usage: {} inspect -b <bpe-input>", programName);
-                std::println();
-                std::println("Options:");
-                std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
-                std::println();
-                break;
-
-            case BPE::SubCommand::Generate:
-                std::println();
-                std::println("Usage: {} generate -b <bpe-input> -o <output-file> -l <token-length>", programName);
-                std::println();
-                std::println("Options:");
-                std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
-                std::println("\t-o <file>\t Output file to write the generate text to (optional)");
-                std::println("\t-c <value>\t Number of tokens to generate (optional, default: {})", BPE::GENERATION_DEFAULT_TOKEN_COUNT);
-                std::println();
-                break;
-
-            default:
-                throw std::runtime_error("Subcommand not implemented");
-                break;
-        }
-    }
-
-    std::println("\t-h, --help\t Print this help message");
-    std::println();
-}
-
 int main(int argc, char* argv[])
 {
-    std::string_view programName{argv[0]};
-
-    std::queue<std::string_view> args{argv + 1, argv + argc};
-
     Flags<BPE::SubCommand> flags{};
-    //Flags<BPE::SubCommand>& flags = Flags<BPE::SubCommand>::GetInstance();
-    //using Flags = Flags<BPE::SubCommand>;
 
     flags.SetSubCommandInfo(
         {
             {BPE::SubCommand::Encode, "encode", "Encode the input file using byte pair encoding"},
             {BPE::SubCommand::Decode, "decode", "Decode an encoded file using a BPE table"},
-            {BPE::SubCommand::Inspect, "inspect", "Inpsect a BPE table"},
+            {BPE::SubCommand::Inspect, "inspect", "Inspect a BPE table"},
             {BPE::SubCommand::Generate, "generate", "Generate new text (gibberish) based on an BPE table"},
         });
 
@@ -109,70 +30,34 @@ int main(int argc, char* argv[])
 
     const std::string* inspectBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Inspect>("-b", "path", "Input file containing the BPE table")};
 
-    //std::println("\t-b <file>\t Input file containing the BPE table (REQUIRED)");
-    //std::println("\t-o <file>\t Output file to write the generate text to (optional)");
-    //std::println("\t-c <value>\t Number of tokens to generate (optional, default: {})", BPE::GENERATION_DEFAULT_TOKEN_COUNT);
     const std::string* generateBpeInputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Generate>("-b", "path", "Input file containing the BPE table")};
     const std::string* generateOutputFilePath{flags.AddFlag<std::string, BPE::SubCommand::Generate>("-o", "path", "Output file to write the generate text to", false)};
     const int* generateTokenCount{flags.AddFlag<int, BPE::SubCommand::Generate>("-c", "value", "Number of tokens to generate", false, BPE::GENERATION_DEFAULT_TOKEN_COUNT)};
 
-    //const std::string* outputFilePath{Flags::AddFlag<std::string, BPE::SubCommand::Encode>(FlagInfo<std::string>{"-o", "TESTERY", false})};
-    //const int* countFlag{Flags::AddFlag<int, BPE::SubCommand::Encode>("-c", 69, true)};
-    //Flags::AddFlag("-h", "HELP");
+    const auto& [parseStatus, subCommand, error]{flags.ParseFlags(argc, argv)};
 
-    //TODO: Change this to return a struct (or a tuple)
-    //struct
-    //{
-    //  status (success, error, help, ...),
-    //  subcommand,
-    //  error message
-    //}
-    const auto& [subCommand, error]{flags.ParseFlags(argc, argv)};
-
-    if (error)
+    switch (parseStatus)
     {
-        //std::println("ERRRROOOOOORRRRR!");
-        std::println(stderr, "{}", error.value());
+        case Flags<BPE::SubCommand>::ParseStatus::Error:
+        {
+            std::println(stderr, "{}", error);
 
-        std::string usage{flags.GetUsage(subCommand)};
-        std::print("{}", usage);
+            std::string usage{flags.GetUsage(subCommand)};
+            std::print("{}", usage);
 
-        return 1;
+            return 1;
+        }
+        case Flags<BPE::SubCommand>::ParseStatus::Help:
+        {
+            std::string usage{flags.GetUsage(subCommand)};
+            std::print("{}", usage);
+
+            return 0;
+        }
+        case Flags<BPE::SubCommand>::ParseStatus::Success:
+        default:
+            break;
     }
-
-    //std::string usage{flags.GetUsage(BPE::SubCommand::Encode)};
-    //std::print("{}", usage);
-    //std::println("SUCCESS");
-
-    //std::println("{}", *encodeInputFilePath);
-    //std::println("{}", *encodeBpeOutputFilePath);
-    //std::println("{}", *encodeTokenOutputFilePath);
-    //std::println("{}", (int)subCommand);
-    //std::println("{}", *outputFilePath);
-    //std::println("{}", *countFlag);
-    //Flags::FlagInfo<std::string> flagInfo{
-    //    .flag = "-i",
-    //    .flagParameterName = "input",
-    //    .description = "input file path",
-    //    .mandatory = true,
-    //    .defaultValue = "default testersy"};
-
-    //const std::string* inputFilePath{Flags::AddFlag<std::string>(flagInfo)};
-
-    //std::println("{}", *inputFilePath);
-
-    //Flags::ParseFlags(argc, argv);
-
-    //if (inputFilePath == NULL)
-    //{
-    //    std::println("null");
-    //}
-    //else
-    //{
-    //    std::println("{}", *inputFilePath);
-    //}
-
-    //std::println("{}", *f);
 
     switch (subCommand)
     {
@@ -316,245 +201,4 @@ int main(int argc, char* argv[])
             throw std::runtime_error("Subcommand not implemented");
             break;
     }
-
-    return 0;
-
-    if (args.size() <= 0)
-    {
-        std::println(stderr, "ERROR: Missing command");
-        PrintUsage(programName);
-        return 1;
-    }
-
-    std::string_view subCommandArg{args.front()};
-    args.pop();
-
-    //if (subCommandArg == "encode") subCommand = BPE::SubCommand::Encode;
-    //else if (subCommandArg == "decode") subCommand = BPE::SubCommand::Decode;
-    //else if (subCommandArg == "inspect") subCommand = BPE::SubCommand::Inspect;
-    //else if (subCommandArg == "generate") subCommand = BPE::SubCommand::Generate;
-    //else if (subCommandArg == "-h" || subCommandArg == "--help")
-    //{
-    //    PrintUsage(programName);
-    //    return 0;
-    //}
-    //else
-    //{
-    //    std::println(stderr, "ERROR: Unknown command {}", subCommandArg);
-    //    PrintUsage(programName);
-    //    return 1;
-    //}
-
-    if (args.size() > 0 && (args.front() == "-h" || args.front() == "--help"))
-    {
-        PrintUsage(programName, subCommand);
-        return 0;
-    }
-
-    switch (subCommand)
-    {
-        /*
-        case BPE::SubCommand::Encode:
-        {
-            std::filesystem::path inputFilePath{};
-            std::filesystem::path bpeFilePath{};
-            std::filesystem::path tokenFilePath{};
-
-            while (args.size() > 0)
-            {
-                std::string_view arg{args.front()};
-                args.pop();
-
-                if (arg == "-i")
-                {
-                    inputFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-b")
-                {
-                    bpeFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-t")
-                {
-                    tokenFilePath = args.front();
-                    args.pop();
-                }
-                else
-                {
-                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
-                    PrintUsage(programName, subCommand);
-                    return 1;
-                }
-            }
-
-            if (inputFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-i <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            if (bpeFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-b <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            break;
-        }
-        case BPE::SubCommand::Decode:
-        {
-            std::filesystem::path bpeFilePath{};
-            std::filesystem::path tokenFilePath{};
-            std::filesystem::path outputFilePath{};
-
-            while (args.size() > 0)
-            {
-                std::string_view arg{args.front()};
-                args.pop();
-
-                if (arg == "-o")
-                {
-                    outputFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-b")
-                {
-                    bpeFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-t")
-                {
-                    tokenFilePath = args.front();
-                    args.pop();
-                }
-                else
-                {
-                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
-                    PrintUsage(programName, subCommand);
-                    return 1;
-                }
-            }
-
-            if (bpeFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-b <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            if (tokenFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-t <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            if (outputFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-o <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            break;
-        }
-        case BPE::SubCommand::Inspect:
-        {
-            std::filesystem::path bpeFilePath{};
-
-            while (args.size() > 0)
-            {
-                std::string_view arg{args.front()};
-                args.pop();
-
-                if (arg == "-b")
-                {
-                    bpeFilePath = args.front();
-                    args.pop();
-                }
-                else
-                {
-                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
-                    PrintUsage(programName, subCommand);
-                    return 1;
-                }
-            }
-
-            if (bpeFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-b <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            break;
-        }
-        case BPE::SubCommand::Generate:
-        {
-            std::filesystem::path bpeFilePath{};
-            std::filesystem::path outputFilePath{};
-            int tokenCount{BPE::GENERATION_DEFAULT_TOKEN_COUNT};
-
-            while (args.size() > 0)
-            {
-                std::string_view arg{args.front()};
-                args.pop();
-
-                if (arg == "-o")
-                {
-                    outputFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-b")
-                {
-                    bpeFilePath = args.front();
-                    args.pop();
-                }
-                else if (arg == "-c")
-                {
-                    try
-                    {
-                        tokenCount = std::stoi(args.front().data(), nullptr, 0);
-                    }
-                    catch (std::invalid_argument const& ex)
-                    {
-                        std::println(stderr, "ERROR: Unable to parse {} to int", args.front());
-                        return 1;
-                    }
-                    catch (std::out_of_range const& ex)
-                    {
-                        std::println(stderr, "ERROR: Token count was out of range");
-                        return 1;
-                    }
-
-                    args.pop();
-                }
-                else
-                {
-                    std::println(stderr, "ERROR: Unknown option '{}'", arg);
-                    PrintUsage(programName, subCommand);
-                    return 1;
-                }
-            }
-
-            if (bpeFilePath.empty())
-            {
-                std::println(stderr, "ERROR: Missing option '-b <file>'");
-                PrintUsage(programName, subCommand);
-                return 1;
-            }
-
-            break;
-        }
-    */
-        case BPE::SubCommand::None:
-        default:
-            throw std::runtime_error("Subcommand not implemented");
-            break;
-    }
-
-    return 0;
 }
