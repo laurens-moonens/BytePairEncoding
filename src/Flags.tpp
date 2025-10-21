@@ -37,6 +37,11 @@ template <typename SubCommand>
 template <typename T, SubCommand S>
 const T* Flags<SubCommand>::AddFlag(const std::string& flag, const std::string& parameterName, const std::string& desciption, bool required, const T& defaultValue)
 {
+    if (subCommandToInfo.contains(S) == false)
+    {
+        throw std::runtime_error(std::format("No info was found for subcommand with value {}. Make sure to add it using SetSubCommandInfo()", (int)S));
+    }
+
     FlagInfo<T> flagInfo{};
     flagInfo.data = defaultValue;
     flagInfo.parameterName = parameterName;
